@@ -15,7 +15,7 @@ Server::~Server()
 
 void Server::createSocket()
 {
-    _serverSocket = socket(AF_INET, SOCK_STREAM | SOCK, 0);
+    _serverSocket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
     if(_serverSocket == -1)
     {
@@ -41,22 +41,26 @@ void Server::bindToPort()
     {
         throw std::runtime_error("bounding failled try with a ohter port");
     }
-
-    // 🔍 Vérification du port réellement utilisé
-    struct sockaddr_in checkAddr;
-    socklen_t checkLen = sizeof(checkAddr);
-    if (getsockname(_serverSocket, (struct sockaddr*)&checkAddr, &checkLen) == -1)
-        throw std::runtime_error("getsockname() failed: ");
-
-    int realPort = ntohs(checkAddr.sin_port);
-    std::cout << "✅ Socket successfully bound to port " << realPort << std::endl;
 }
 
 void Server::startListening()
 {
     _listening = listen(_serverSocket, PENDING_QUEUE_MAXLENGTH);
-
     if(_listening == -1)
-     throw std::runtime_error("listen failed");
-    std:: cout << "Server listening on port" << _port << std::endl;
+        throw std::runtime_error("listen failed");
+
+    while (true)
+    {
+        struct sockaddr_in clientAddr;
+        socklen_t clientLen = sizeof(clientAddr);
+
+        int clientSocket = accept(_serverSocket, (struct sockaddr *)&clientAddr, &clientLen);
+        if (clientSocket == -1)
+        {
+            //std::cerr << "accept failed" << std::endl;
+            continue; // ne quitte pas, continue à écouter
+        }
+        std::cout << "New client connected!" << std::endl;
+    }
+
 }
