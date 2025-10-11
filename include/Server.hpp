@@ -1,32 +1,30 @@
-#ifndef SERVER_HPP
-#define SERVER_HPP
+#pragma once
 
-#include <sys/socket.h>
-#include <stdexcept>
-#include <netinet/in.h>
-#include <string>
-#include <unistd.h>
 #include <iostream>
-#define PENDING_QUEUE_MAXLENGTH 10
-#include <cerrno>
+#include <stdexcept>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <unistd.h>
+#include <netdb.h>       
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <fcntl.h>
 
-class Server
+#define PENDING_QUEUE_MAXLENGTH 10
+
+//test a réaliser ipv6 et ipv4 normalement ok ?
+
+class Server 
 {
     private:
+        int _port;
         int _serverSocket;
-        int _port; // verifier la validitée du port 1 à 65535
-        std::string _password; // à ajouter plus tard au constructeur du server
-        struct sockaddr_in _serverAddr;
-        int _bound;
-        int _listening;
     public:
         Server(int port);
         ~Server();
 
-        void createSocket();
-        void setSocketData();
-        void bindToPort();
-        void startListening();
-};
+        void initSocket(char **argv); // création + bind via getaddrinfo
+        void startListening(); // accepte les connexions entrantes
 
-#endif
+};
