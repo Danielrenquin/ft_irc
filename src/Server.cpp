@@ -12,7 +12,7 @@ Server::~Server()
         close(_serverSocket);
 }
 
-void::Server::initSocket(char **argv)
+void Server::initSocket(char **argv)
 {
     struct addrinfo hints, *res, *p;
     int status;
@@ -57,7 +57,7 @@ void::Server::initSocket(char **argv)
         throw std::runtime_error("Failled to bind socket on any address");    
 }
 
-void Server::startListening()
+/*void Server::startListening()
 {
     //met le socket en mode écoute
     if(listen(_serverSocket, PENDING_QUEUE_MAXLENGTH))
@@ -73,11 +73,9 @@ void Server::startListening()
 
         int clientSocket = accept(_serverSocket, (struct sockaddr *)&clientAddr, &clientLen);
         if (clientSocket == -1)
-        {
             continue;
-        }
         
-        /*--------------seulement pour affichage a delete plus tard---------------*/
+        //--------------seulement pour affichage a delete plus tard---------------
         char host[NI_MAXHOST];
         char service[NI_MAXSERV];
 
@@ -100,6 +98,93 @@ void Server::startListening()
         std::cout << "  - IP: " << host << std::endl;
         std::cout << "  - Port: " << service << std::endl;
         std::cout << "--------------------------------" << std::endl;
-        /*--------------------------------------------------------------------------*/
+        //--------------------------------------------------------------------------
+    }
+}*/
+
+void Server::startListening()
+{
+    if(listen(_serverSocket, PENDING_QUEUE_MAXLENGTH))
+        throw std::runtime_error("listen failled");
+    std::cout << "Server listening on port " << _port << std::endl;
+
+    pollfd serverPfd;
+    serverPfd.fd = _serverSocket;
+    serverPfd.events = POLLIN;
+    serverPfd.revents = 0;
+    _pfds.push_back(serverPfd);
+
+    handel_connecions();
+}
+
+void Server::addClient(int fd)
+{
+    pollfd pfd;
+    pfd.fd = fd;
+    pfd.events = POLLIN; //alert quand je peux envoyer les datas au socket
+    pfd.revents = 0;
+    _pfds.push_back(pfd);   
+}
+
+void Server::removeClient(int index)
+{
+    std::swap(_pfds[index], _pfds.back());
+    _pfds.pop_back();
+}
+
+void Server::handel_connecions()
+{
+    while (true)
+    {
+        //poll renvoie le nombre de fd qui ont déclencher un évenement
+        int pollResult = poll(_pfds.data(), _pfds.size(), -1);
+        if(pollResult < 0)
+            throw std::runtime_error("poll failled");
+        
+        for(size_t i = 0; i < _pfds.size(); i++)
+        {
+            //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
+            if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
+            {
+                struct sockaddr_storage clientAddr;
+                socklen_t clientlen = sizeof(clientAddr);
+                int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
+                if(clientFd == -1)
+                    continue;
+                fcntl(clientFd, F_SETFL, O_NONBLOCK);
+                addClient(clientFd);
+                std::cout << "New client fd " << clientFd << std::endl;
+            }
+            //si un client a envoyer des données
+            else if (_pfds[i].revents &POLLIN)
+            {
+                char buffer[MSG_SIZE];
+                int clientFd = _pfds[i].fd;
+                int nbytes = recv(clientFd, buffer, sizeof(buffer), 0);
+
+                //deconnexion du client ou erreur
+                if(nbytes <= 0)
+                {
+                    if(nbytes == 0)
+                        std::cout << "Client FD " << clientFd << "disconnected" << std::endl;
+                    else
+                        throw std::runtime_error("recv failled");
+                    close(clientFd);
+                    removeClient(i);
+                    --i;
+                }
+                //broadcast du message
+                else
+                {
+                    buffer[nbytes] = '\0';
+                    std::cout << "[recv FD " << clientFd << "]" << buffer << std::endl;
+                    for(size_t j = 0; j < _pfds.size(); j++)
+                    {
+                        if(_pfds[j].fd != _serverSocket && _pfds[j].fd != clientFd)
+                            send(_pfds[j].fd, buffer, nbytes, 0);
+                    }
+                }
+            }
+        }
     }
 }
