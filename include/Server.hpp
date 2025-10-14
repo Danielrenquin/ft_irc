@@ -35,9 +35,13 @@ class Server
 
         void initSocket(char **argv); // création + bind via getaddrinfo
         void startListening(); // accepte les connexions entrantes
+
         void addClient(int fd);
         void removeClient(int index);
+        void login();
+        void send_or_dconection(int index);
         void handel_connecions();
+
 };
 
 //separer les fonctions pour operateur/client

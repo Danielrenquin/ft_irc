@@ -132,6 +132,45 @@ void Server::removeClient(int index)
     _pfds.pop_back();
 }
 
+void Server::login()
+{
+    struct sockaddr_storage clientAddr;
+    socklen_t clientlen = sizeof(clientAddr);
+    int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
+    if(clientFd == -1)
+        return;
+    fcntl(clientFd, F_SETFL, O_NONBLOCK);
+    //prend input et accept le client
+    //construction du client
+    addClient(clientFd); //ajout a un conteneur de client
+    std::cout << "New client fd " << clientFd << std::endl;
+}
+
+void Server::send_or_disconnection(int index)
+{
+    char buffer[MSG_SIZE];
+    int clientFd = _pfds[index].fd;
+    int nbytes = recv(clientFd, buffer, sizeof(buffer), 0);
+
+    // Déconnexion du client ou erreur
+    if(nbytes <= 0)
+    {
+        if(nbytes == 0)
+            std::cout << "Client FD " << clientFd << " disconnected" << std::endl;
+        else
+            std::cerr << "recv failed" << std::endl;
+
+        close(clientFd);
+        removeClient(index);
+        return;
+    }
+
+    // Traitement et broadcast du message
+    buffer[nbytes] = '\0';
+    std::cout << "[recv FD " << clientFd << "] " << buffer << std::endl;
+    broadcastMessage(clientFd, buffer, nbytes);
+}
+
 void Server::handel_connecions()
 {
     while (true)
@@ -146,14 +185,7 @@ void Server::handel_connecions()
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
             if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
             {
-                struct sockaddr_storage clientAddr;
-                socklen_t clientlen = sizeof(clientAddr);
-                int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
-                if(clientFd == -1)
-                    continue;
-                fcntl(clientFd, F_SETFL, O_NONBLOCK);
-                addClient(clientFd);
-                std::cout << "New client fd " << clientFd << std::endl;
+                login();
             }
             //si un client a envoyer des données
             else if (_pfds[i].revents &POLLIN)
@@ -170,7 +202,7 @@ void Server::handel_connecions()
                     else
                         throw std::runtime_error("recv failled");
                     close(clientFd);
-                    removeClient(i); // ce referencer au fd
+                    removeClient(i);
                     --i;
                 }
                 //broadcast du message
