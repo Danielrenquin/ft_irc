@@ -29,7 +29,7 @@ void Server::initSocket(char **argv)
     //res est un pointeur sur la première structure de cette liste
     if((status = getaddrinfo(NULL, portStr, &hints, &res)) != 0)
         throw std::runtime_error(std::string("getaddrinfo: ") + gai_strerror(status));
-    
+
     //itération  sur la liste chainée
     for(p = res; p != NULL; p = p->ai_next)
     {
@@ -54,7 +54,7 @@ void Server::initSocket(char **argv)
     }
     freeaddrinfo(res);
     if(_serverSocket == -1)
-        throw std::runtime_error("Failled to bind socket on any address");    
+        throw std::runtime_error("Failled to bind socket on any address");
 }
 
 /*void Server::startListening()
@@ -74,7 +74,7 @@ void Server::initSocket(char **argv)
         int clientSocket = accept(_serverSocket, (struct sockaddr *)&clientAddr, &clientLen);
         if (clientSocket == -1)
             continue;
-        
+
         //--------------seulement pour affichage a delete plus tard---------------
         char host[NI_MAXHOST];
         char service[NI_MAXSERV];
@@ -84,7 +84,7 @@ void Server::initSocket(char **argv)
             host, sizeof(host),
             service, sizeof(service),
             NI_NUMERICHOST | NI_NUMERICSERV);
-        
+
 
         if (result != 0)
         {
@@ -123,7 +123,7 @@ void Server::addClient(int fd)
     pfd.fd = fd;
     pfd.events = POLLIN; //alert quand je peux envoyer les datas au socket
     pfd.revents = 0;
-    _pfds.push_back(pfd);   
+    _pfds.push_back(pfd);
 }
 
 void Server::removeClient(int index)
@@ -140,7 +140,7 @@ void Server::handel_connecions()
         int pollResult = poll(_pfds.data(), _pfds.size(), -1);
         if(pollResult < 0)
             throw std::runtime_error("poll failled");
-        
+
         for(size_t i = 0; i < _pfds.size(); i++)
         {
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
@@ -170,7 +170,7 @@ void Server::handel_connecions()
                     else
                         throw std::runtime_error("recv failled");
                     close(clientFd);
-                    removeClient(i);
+                    removeClient(i); // ce referencer au fd
                     --i;
                 }
                 //broadcast du message

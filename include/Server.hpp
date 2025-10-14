@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
-#include <netdb.h>       
+#include <netdb.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -22,13 +22,13 @@
 
 //test a réaliser ipv6 et ipv4 normalement ok ?
 
-class Server 
+class Server
 {
     private:
         int _port;
         int _serverSocket;
         std::map<int, Client> _clients;
-        std::vector<pollfd> _pfds; 
+        std::vector<pollfd> _pfds;
     public:
         Server(int port);
         ~Server();
@@ -39,3 +39,7 @@ class Server
         void removeClient(int index);
         void handel_connecions();
 };
+
+//separer les fonctions pour operateur/client
+//ajouter le passeword
+//inserer le containeur de poll dans un containeur de clients
