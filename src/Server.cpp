@@ -147,6 +147,8 @@ void Server::handel_connecions()
             if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
             {
                 login();
+				// parsing
+				// Client first("user", "...");
             }
             //si un client a envoyer des données
             //ou si un client se deconnect du server

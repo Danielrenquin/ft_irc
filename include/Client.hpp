@@ -1,7 +1,6 @@
 #pragma once
 
-#include "string"
-#include "vector"
+#include "Server.hpp"
 
 /*USER <username> <hostname> <servername> <realname>
 ```
@@ -35,6 +34,7 @@ class Client
 {
 	private:
 		std::string _type;
+		pollfd *_pfd;
     protected:
         std::string _username; //devra faire 9 charactères
         std::string _hostname;
@@ -48,6 +48,10 @@ class Client
 		Client(const Client &other);
 		Client& operator=(const Client &other);
 
+		pollfd *getPoll() const;
+		void setPoll(pollfd *pfd);
+
+
         //void join();
         //see_channels(); ???
 
@@ -55,7 +59,9 @@ class Client
         removeclient
         msg/n/r*/
 };
- //regarder si il y a un channel general
- //operateur cree un channel
- //commande join pour client
- //commmencer la classe channel
+
+
+ // Operateur cree un channel
+ // Commande join pour client
+ // Parsing client pour son instance
+ // Commmencer la classe channel

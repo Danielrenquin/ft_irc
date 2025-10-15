@@ -37,3 +37,13 @@ Client &Client::operator=(const Client &other)
 	}
 	return (*this);
 }
+
+pollfd *Client::getPoll() const
+{
+	return (_pfd);
+}
+
+void Client::setPoll(pollfd *pfd)
+{
+	_pfd = pfd;
+}
