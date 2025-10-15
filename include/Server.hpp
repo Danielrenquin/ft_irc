@@ -39,7 +39,7 @@ class Server
         void addClient(int fd);
         void removeClient(int index);
         void login();
-        void send_or_dconection(int index);
+        void handleClientData(size_t index);
         void handel_connecions();
 
 };
