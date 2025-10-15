@@ -1,5 +1,6 @@
 #include "Server.hpp"
 
+
 Server::Server(int port) : _port(port)
 {
     if(port < 1 || port > 65535)
@@ -87,18 +88,84 @@ void Server::removeClient(int index)
     _pfds.pop_back();
 }
 
-void Server::login()
+int Server::receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index)
 {
+	//const int BUFFER_SIZE = 1024;
+    //char *buffer = new char[BUFFER_SIZE];
+    
+    //if (!buffer) 
+		//return (NULL);
+    
+    int nbytes = 0;
+    
+    while (true)
+    {
+        nbytes = recv(clientFd, buffer[*index], sizeof(buffer[*index]), 0);
+        //if (nbytes == -1)
+			//throw std::runtime_error("recv failed");
+        if (nbytes > 0) 
+			break ;
+		if (nbytes == 0)
+		{
+			std::cout << "Client " << clientFd << " disconnected" << std::endl;
+			close(clientFd);
+        	removeClient(clientIndex);
+			return (-1);
+		}
+		
+    }
+    buffer[*index][nbytes] = '\0';
+	(*index)++;
+    return (0);
+}
+
+int Server::parsingInputs(int ClientFd, int clientIndex, char buffer[4][48])
+{
+	int index = 0;
+
+	write(ClientFd, "write your username: ", 22);
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+		return (-1);
+
+	write(ClientFd, "write your hostname: ", 22);
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+		return (-1);
+
+	write(ClientFd, "write your servername: ", 24);
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+		return (-1);
+
+	write(ClientFd, "write your realname: ", 22);
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+		return (-1);
+
+	std::cout << buffer[0] << std::endl;
+	std::cout << buffer[1] << std::endl;
+	std::cout << buffer[2] << std::endl;
+	std::cout << buffer[3] << std::endl;
+	return (0);
+}
+
+int Server::login(int clientIndex)
+{
+	char buffer[4][48] = {0}; // <-- utiliser l'index 0 à 3 pour construire un client
     struct sockaddr_storage clientAddr;
     socklen_t clientlen = sizeof(clientAddr);
     int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
     if(clientFd == -1)
-        return;
+        return (-1);
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
+	
+	if (parsingInputs(clientFd, clientIndex, buffer) == -1)
+		return (-1);
+	
+	// scanf lire sur le fd du client 
     //prend input et accept le client
-    //construction du client
+    // construction du client --> conteneur de client
+	// Push pollfd dans le client
     addClient(clientFd); //ajout a un conteneur de client
     std::cout << "New client fd " << clientFd << std::endl;
+	return (0);
 }
 
 void Server::handleClientData(size_t index)
@@ -146,9 +213,10 @@ void Server::handel_connecions()
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
             if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
             {
-                login();
 				// parsing
 				// Client first("user", "...");
+				if (login(i) == -1)
+					break ;
             }
             //si un client a envoyer des données
             //ou si un client se deconnect du server

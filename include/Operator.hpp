@@ -12,5 +12,3 @@ public:
 	Operator(const Operator &other);
 	Operator &operator=(const Operator &other);
 };
-
-

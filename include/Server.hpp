@@ -22,6 +22,8 @@
 
 //test a réaliser ipv6 et ipv4 normalement ok ?
 
+class Client;
+
 class Server
 {
     private:
@@ -38,9 +40,12 @@ class Server
 
         void addClient(int fd);
         void removeClient(int index);
-        void login();
+        int login(int clientIndex);
         void handleClientData(size_t index);
         void handel_connecions();
+
+		int receiveDataFromUser(int clientFd, int clientIndex, char buffer[48][48], int *index);
+		int parsingInputs(int ClientFd, int clientIndex, char buffer[4][48]);
 
 };
 
