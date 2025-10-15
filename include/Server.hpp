@@ -42,7 +42,7 @@ class Server
         void removeClient(int index);
         int login(int clientIndex);
         void handleClientData(size_t index);
-        void handel_connecions();
+        void handle_connections();
 
 		int receiveDataFromUser(int clientFd, int clientIndex, char buffer[48][48], int *index);
 		int parsingInputs(int ClientFd, int clientIndex, char buffer[4][48]);

@@ -70,7 +70,7 @@ void Server::startListening()
     serverPfd.revents = 0;
     _pfds.push_back(serverPfd);
 
-    handel_connecions();
+    handle_connections();
 }
 
 void Server::addClient(int fd)
@@ -124,19 +124,19 @@ int Server::parsingInputs(int ClientFd, int clientIndex, char buffer[4][48])
 	int index = 0;
 
 	write(ClientFd, "write your username: ", 22);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 0, username
 		return (-1);
 
 	write(ClientFd, "write your hostname: ", 22);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 1, hostname
 		return (-1);
 
 	write(ClientFd, "write your servername: ", 24);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 2, servername
 		return (-1);
 
 	write(ClientFd, "write your realname: ", 22);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1)
+	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 3, realname
 		return (-1);
 
 	std::cout << buffer[0] << std::endl;
@@ -198,7 +198,7 @@ void Server::handleClientData(size_t index)
     }
 }
 
-void Server::handel_connecions()
+void Server::handle_connections()
 {
     while (true)
     {
