@@ -57,51 +57,6 @@ void Server::initSocket(char **argv)
         throw std::runtime_error("Failled to bind socket on any address");
 }
 
-/*void Server::startListening()
-{
-    //met le socket en mode écoute
-    if(listen(_serverSocket, PENDING_QUEUE_MAXLENGTH))
-        throw std::runtime_error("listen failed");
-
-    while (true)
-    {
-        //cette structure permet de contenir une structure adapter à ipv6 ou ipv4
-        //celle ci sera caster par l' os au moment du call de la fonction accept
-        //en fonction du type de connexion(ipv6 ou ipv4)
-        struct sockaddr_storage clientAddr;
-        socklen_t clientLen = sizeof(clientAddr);
-
-        int clientSocket = accept(_serverSocket, (struct sockaddr *)&clientAddr, &clientLen);
-        if (clientSocket == -1)
-            continue;
-
-        //--------------seulement pour affichage a delete plus tard---------------
-        char host[NI_MAXHOST];
-        char service[NI_MAXSERV];
-
-        int result = getnameinfo(
-            (struct sockaddr *)&clientAddr, clientLen,
-            host, sizeof(host),
-            service, sizeof(service),
-            NI_NUMERICHOST | NI_NUMERICSERV);
-
-
-        if (result != 0)
-        {
-            std::cerr << "getnameinfo: " << gai_strerror(result) << std::endl;
-            close(clientSocket);
-            continue;
-        }
-
-        std::cout << "New client connected!" << std::endl;
-        std::cout << "  - FD: " << clientSocket << std::endl;
-        std::cout << "  - IP: " << host << std::endl;
-        std::cout << "  - Port: " << service << std::endl;
-        std::cout << "--------------------------------" << std::endl;
-        //--------------------------------------------------------------------------
-    }
-}*/
-
 void Server::startListening()
 {
     if(listen(_serverSocket, PENDING_QUEUE_MAXLENGTH))
@@ -132,6 +87,50 @@ void Server::removeClient(int index)
     _pfds.pop_back();
 }
 
+void Server::login()
+{
+    struct sockaddr_storage clientAddr;
+    socklen_t clientlen = sizeof(clientAddr);
+    int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
+    if(clientFd == -1)
+        return;
+    fcntl(clientFd, F_SETFL, O_NONBLOCK);
+    //prend input et accept le client
+    //construction du client
+    addClient(clientFd); //ajout a un conteneur de client
+    std::cout << "New client fd " << clientFd << std::endl;
+}
+
+void Server::handleClientData(size_t index)
+{
+    char buffer[MSG_SIZE];
+    int fd = _pfds[index].fd;
+    int nbytes = recv(fd, buffer, sizeof(buffer), 0);
+
+    if(nbytes <= 0)
+    {
+        if(nbytes == 0)
+            std::cout << "Client " << fd << " disconnected" << std::endl;
+        else
+            throw std::runtime_error("recv failed");
+        close(fd);
+        removeClient(index);
+    }
+    else
+    {
+        for(size_t j = 1; j < _pfds.size(); ++j)
+        {
+            buffer[nbytes] = '\0';
+            std::cout << "[recv FD " << fd << "]" << buffer << std::endl;
+            int dest = _pfds[j].fd;
+            //cette condition permet de pas envoyer le message 
+            //a celui meme qui l' envoie
+            if(dest != fd)
+                send(dest, buffer, nbytes, 0);
+        }
+    }
+}
+
 void Server::handel_connecions()
 {
     while (true)
@@ -143,47 +142,17 @@ void Server::handel_connecions()
 
         for(size_t i = 0; i < _pfds.size(); i++)
         {
+            //un nouveaux client se logue sur le server
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
             if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
             {
-                struct sockaddr_storage clientAddr;
-                socklen_t clientlen = sizeof(clientAddr);
-                int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
-                if(clientFd == -1)
-                    continue;
-                fcntl(clientFd, F_SETFL, O_NONBLOCK);
-                addClient(clientFd);
-                std::cout << "New client fd " << clientFd << std::endl;
+                login();
             }
             //si un client a envoyer des données
+            //ou si un client se deconnect du server
             else if (_pfds[i].revents &POLLIN)
             {
-                char buffer[MSG_SIZE];
-                int clientFd = _pfds[i].fd;
-                int nbytes = recv(clientFd, buffer, sizeof(buffer), 0);
-
-                //deconnexion du client ou erreur
-                if(nbytes <= 0)
-                {
-                    if(nbytes == 0)
-                        std::cout << "Client FD " << clientFd << "disconnected" << std::endl;
-                    else
-                        throw std::runtime_error("recv failled");
-                    close(clientFd);
-                    removeClient(i); // ce referencer au fd
-                    --i;
-                }
-                //broadcast du message
-                else
-                {
-                    buffer[nbytes] = '\0';
-                    std::cout << "[recv FD " << clientFd << "]" << buffer << std::endl;
-                    for(size_t j = 0; j < _pfds.size(); j++)
-                    {
-                        if(_pfds[j].fd != _serverSocket && _pfds[j].fd != clientFd)
-                            send(_pfds[j].fd, buffer, nbytes, 0);
-                    }
-                }
+                handleClientData(i);
             }
         }
     }
