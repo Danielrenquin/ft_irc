@@ -34,7 +34,8 @@ class Client
 {
 	private:
 		std::string _type;
-		pollfd *_pfd;
+		int _clientFd;
+		pollfd *_pfd; // normalement stocké sur le serveur
     protected:
         std::string _username; //devra faire 9 charactères
         std::string _hostname;
@@ -43,7 +44,7 @@ class Client
         //std::vector<channel> _channel
         //int _port; //port utiliser côté client
     public:
-        Client(std::string username, std::string hostname, std::string servername, const std::string realname);
+        Client(std::string username, std::string hostname, std::string servername, const std::string realname, int clientFd);
         ~Client();
 		Client(const Client &other);
 		Client& operator=(const Client &other);

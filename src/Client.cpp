@@ -1,13 +1,14 @@
 
 #include "Client.hpp"
 
-Client::Client(std::string username, std::string hostname, std::string servername, std::string realname) 
+Client::Client(std::string username, std::string hostname, std::string servername, std::string realname, int clientFd) 
 {
 	_type = "client";
 	_username = username;
 	_hostname = hostname;
 	_servername = servername;
 	_realname = realname;
+	_clientFd = clientFd;
 }
 
 Client::~Client() 

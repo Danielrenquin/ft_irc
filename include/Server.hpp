@@ -35,6 +35,14 @@ class Server
         Server(int port);
         ~Server();
 
+		enum eClientInformation
+		{
+			eUsername,
+			eHostname,
+			eServername,
+			eRealname
+		};
+
         void initSocket(char **argv); // création + bind via getaddrinfo
         void startListening(); // accepte les connexions entrantes
 
@@ -42,10 +50,12 @@ class Server
         void removeClient(int index);
         int login(int clientIndex);
         void handleClientData(size_t index);
-        void handle_connections();
+        void handleConnections();
 
-		int receiveDataFromUser(int clientFd, int clientIndex, char buffer[48][48], int *index);
-		int parsingInputs(int ClientFd, int clientIndex, char buffer[4][48]);
+		// Parsing
+		int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
+		int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
+		int parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index);
 
 };
 

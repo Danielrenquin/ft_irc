@@ -70,7 +70,7 @@ void Server::startListening()
     serverPfd.revents = 0;
     _pfds.push_back(serverPfd);
 
-    handle_connections();
+    handleConnections();
 }
 
 void Server::addClient(int fd)
@@ -115,39 +115,72 @@ int Server::receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48
 		
     }
     buffer[*index][nbytes] = '\0';
-	(*index)++;
     return (0);
 }
 
-int Server::parsingInputs(int ClientFd, int clientIndex, char buffer[4][48])
+int Server::parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index)
+{
+	write(clientFd, "write your username: ", 22);
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, index) == -1) // <-- index 0, username
+		return (-1);
+	for (size_t i = 0; i < strlen(buffer[eUsername]); i++)
+	{
+		if (buffer[eUsername][i] == '\n')
+			buffer[eUsername][i] = '\0';
+	}
+	if (strlen(buffer[eUsername]) == 0 || strlen(buffer[eUsername]) > 9)
+	{
+		write(clientFd, "Should not be empty and less than 10 char\n", 43);
+		if (parsingUsername(clientFd, clientIndex, buffer, index))
+			return (-1);
+	}
+	int i = 0;
+	while (buffer[eUsername][i])
+	{
+		if (!isalnum(buffer[eUsername][i]) || buffer[eUsername][i] == ' ')
+		{
+			write(clientFd, "Contains unallowed char\n", 25);
+			if (parsingUsername(clientFd, clientIndex, buffer, index))
+				return (-1);
+		}
+		i++;
+	}
+
+	return (0);
+}
+
+int Server::parsingInputs(int clientFd, int clientIndex, char buffer[4][48])
 {
 	int index = 0;
 
-	write(ClientFd, "write your username: ", 22);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 0, username
+
+	parsingUsername(clientFd, clientIndex, buffer, &index);
+
+	index++;
+	write(clientFd, "write your hostname: ", 22);
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 1, hostname
 		return (-1);
 
-	write(ClientFd, "write your hostname: ", 22);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 1, hostname
+	index++;
+	write(clientFd, "write your servername: ", 24);
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 2, servername
 		return (-1);
 
-	write(ClientFd, "write your servername: ", 24);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 2, servername
+	index++;
+	write(clientFd, "write your realname: ", 22);
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 3, realname
 		return (-1);
 
-	write(ClientFd, "write your realname: ", 22);
-	if (receiveDataFromUser(ClientFd, clientIndex, buffer, &index) == -1) // <-- index 3, realname
-		return (-1);
-
-	std::cout << buffer[0] << std::endl;
-	std::cout << buffer[1] << std::endl;
-	std::cout << buffer[2] << std::endl;
-	std::cout << buffer[3] << std::endl;
+	std::cout << buffer[eUsername] << std::endl;
+	std::cout << buffer[eHostname] << std::endl;
+	std::cout << buffer[eServername] << std::endl;
+	std::cout << buffer[eRealname] << std::endl;
 	return (0);
 }
 
 int Server::login(int clientIndex)
 {
+	static int mapId = 0;
 	char buffer[4][48] = {0}; // <-- utiliser l'index 0 à 3 pour construire un client
     struct sockaddr_storage clientAddr;
     socklen_t clientlen = sizeof(clientAddr);
@@ -158,10 +191,14 @@ int Server::login(int clientIndex)
 	
 	if (parsingInputs(clientFd, clientIndex, buffer) == -1)
 		return (-1);
-	
-	// scanf lire sur le fd du client 
+	Client newClient(buffer[eUsername], 
+					buffer[eHostname],
+					buffer[eServername],
+					buffer[eRealname],
+					clientFd);
     //prend input et accept le client
     // construction du client --> conteneur de client
+	_clients.insert(std::make_pair(mapId++, newClient));
 	// Push pollfd dans le client
     addClient(clientFd); //ajout a un conteneur de client
     std::cout << "New client fd " << clientFd << std::endl;
@@ -185,20 +222,33 @@ void Server::handleClientData(size_t index)
     }
     else
     {
+		// Parsing commandes
+		buffer[nbytes] = '\0';
+
+		// supprimer \r et \n à la fin
+		//while (nbytes > 0 && (buffer[nbytes-1] == '\n' || buffer[nbytes-1] == '\r'))
+			//buffer[--nbytes] = '\0';
+
+		if (strncmp(buffer, "JOIN", 4) == 0)
+		{
+			std::cout << "[client: " << fd << "] want to join a channel" << std::endl;
+		}
+		// Implemter les autres parsing de commandes
+		
+		// Boucle afin d'envoyer le message aux autres clients
         for(size_t j = 1; j < _pfds.size(); ++j)
         {
-            buffer[nbytes] = '\0';
             std::cout << "[recv FD " << fd << "]" << buffer << std::endl;
             int dest = _pfds[j].fd;
-            //cette condition permet de pas envoyer le message 
-            //a celui meme qui l' envoie
+            // cette condition permet de pas envoyer le message 
+            // a celui meme qui l'envoie
             if(dest != fd)
                 send(dest, buffer, nbytes, 0);
         }
     }
 }
 
-void Server::handle_connections()
+void Server::handleConnections()
 {
     while (true)
     {
@@ -213,8 +263,6 @@ void Server::handle_connections()
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
             if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
             {
-				// parsing
-				// Client first("user", "...");
 				if (login(i) == -1)
 					break ;
             }
