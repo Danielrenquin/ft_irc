@@ -121,7 +121,7 @@ int Server::receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48
 int Server::parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index)
 {
 	write(clientFd, "write your username: ", 22);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, index) == -1) // <-- index 0, username
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, index) == -1)
 		return (-1);
 	for (size_t i = 0; i < strlen(buffer[eUsername]); i++)
 	{
@@ -154,7 +154,7 @@ int Server::parsingInputs(int clientFd, int clientIndex, char buffer[4][48])
 	int index = 0;
 
 
-	parsingUsername(clientFd, clientIndex, buffer, &index);
+	parsingUsername(clientFd, clientIndex, buffer, &index); // <-- index 0, username
 
 	index++;
 	write(clientFd, "write your hostname: ", 22);
