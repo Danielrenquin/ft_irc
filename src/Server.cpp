@@ -149,27 +149,42 @@ int Server::parsingUsername(int clientFd, int clientIndex, char buffer[4][48], i
 	return (0);
 }
 
+int Server::parsingRealname(int clientFd, int clientIndex, char buffer[4][48], int *index)
+{
+	write(clientFd, "write your realname: ", 22);
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, index) == -1)
+		return (-1);
+	for (size_t i = 0; i < strlen(buffer[eUsername]); i++)
+	{
+		if (buffer[eUsername][i] == '\n')
+			buffer[eUsername][i] = '\0';
+	}
+	if (strlen(buffer[eUsername]) == 0 || strlen(buffer[eUsername]) > 128)
+	{
+		write(clientFd, "Should not be empty and less than 128 char\n", 43);
+		if (parsingUsername(clientFd, clientIndex, buffer, index))
+			return (-1);
+	}
+}
+
 int Server::parsingInputs(int clientFd, int clientIndex, char buffer[4][48])
 {
 	int index = 0;
-
 
 	parsingUsername(clientFd, clientIndex, buffer, &index); // <-- index 0, username
 
 	index++;
 	write(clientFd, "write your hostname: ", 22);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 1, hostname
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 1, hostname, ignoré dans rfc1459 par le serveur
 		return (-1);
 
 	index++;
 	write(clientFd, "write your servername: ", 24);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 2, servername
+	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 2, servername, ignoré dans rfc1459 par le serveur
 		return (-1);
 
 	index++;
-	write(clientFd, "write your realname: ", 22);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 3, realname
-		return (-1);
+    parsingRealname(clientFd, clientIndex, buffer, &index); // <-- index 3, realname
 
 	std::cout << buffer[eUsername] << std::endl;
 	std::cout << buffer[eHostname] << std::endl;
@@ -181,7 +196,7 @@ int Server::parsingInputs(int clientFd, int clientIndex, char buffer[4][48])
 int Server::login(int clientIndex)
 {
 	static int mapId = 0;
-	char buffer[4][48] = {0}; // <-- utiliser l'index 0 à 3 pour construire un client
+	char buffer[4][48] = {}; // <-- utiliser l'index 0 à 3 pour construire un client
     struct sockaddr_storage clientAddr;
     socklen_t clientlen = sizeof(clientAddr);
     int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
@@ -224,10 +239,6 @@ void Server::handleClientData(size_t index)
     {
 		// Parsing commandes
 		buffer[nbytes] = '\0';
-
-		// supprimer \r et \n à la fin
-		//while (nbytes > 0 && (buffer[nbytes-1] == '\n' || buffer[nbytes-1] == '\r'))
-			//buffer[--nbytes] = '\0';
 
 		if (strncmp(buffer, "JOIN", 4) == 0)
 		{

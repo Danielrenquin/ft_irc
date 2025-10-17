@@ -56,6 +56,7 @@ class Server
 		int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
 		int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
 		int parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index);
+        int parsingRealname(int clientFd, int clientIndex, char buffer[4][48], int *index);
 
 };
 
