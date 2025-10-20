@@ -44,6 +44,7 @@ class Client
         //std::vector<channel> _channel
         //int _port; //port utiliser côté client
     public:
+	 	Client();
         Client(std::string username, std::string hostname, std::string servername, const std::string realname, int clientFd);
         ~Client();
 		Client(const Client &other);
@@ -51,6 +52,13 @@ class Client
 
 		pollfd *getPoll() const;
 		void setPoll(pollfd *pfd);
+		const std::string& getUsername() const;
+		const std::string& getHostname() const;
+		const std::string& getServername() const;
+		const std::string& getRealname() const;
+		int getFd() const;
+
+		void sendMessage(const std::string &msg) const;
 
 
         //void join();

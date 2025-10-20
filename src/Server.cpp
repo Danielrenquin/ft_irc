@@ -1,5 +1,11 @@
 #include "Server.hpp"
 
+// Structure de context d'authentification
+// Permet de savoir l'état actuel d'authentification du client
+struct ClientContext 
+{
+    Server::ClientState state;
+};
 
 Server::Server(int port) : _port(port)
 {
@@ -87,7 +93,7 @@ void Server::removeClient(int index)
     std::swap(_pfds[index], _pfds.back());
     _pfds.pop_back();
 }
-
+/*
 int Server::receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index)
 {
 	//const int BUFFER_SIZE = 1024;
@@ -145,7 +151,6 @@ int Server::parsingUsername(int clientFd, int clientIndex, char buffer[4][48], i
 		}
 		i++;
 	}
-
 	return (0);
 }
 
@@ -257,8 +262,231 @@ void Server::handleClientData(size_t index)
                 send(dest, buffer, nbytes, 0);
         }
     }
+}*/
+
+
+// Permet de parser le buffer
+std::string Server::trim(const std::string &s) 
+{
+    size_t start = s.find_first_not_of(" \n\r\t");
+    size_t end = s.find_last_not_of(" \n\r\t");
+
+    if (start == std::string::npos) 
+		return ("");
+
+    return (s.substr(start, end - start + 1));
 }
 
+// Envois les messages sur les autres fd
+void Server::broadcastMessage(int senderFd, const std::string &msg) 
+{
+    for (size_t i = 1; i < _pfds.size(); ++i) 
+	{
+        int fd = _pfds[i].fd;
+
+        if (fd != senderFd)
+            _clients[fd].sendMessage(msg);
+    }
+}
+
+// Authentification du nouveau client
+void Server::acceptNewClient() 
+{
+    struct sockaddr_storage clientAddr;
+    socklen_t clientlen = sizeof(clientAddr);
+    int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
+
+    if (clientFd == -1)
+        return;
+
+    fcntl(clientFd, F_SETFL, O_NONBLOCK);
+
+    // Créer le client et l'insérer dans la map
+    Client newClient("", "", "", "", clientFd);
+    _clients[clientFd] = newClient;
+    Client &client = _clients[clientFd]; // référence vers l'objet dans la map
+
+    // Créer le contexte d'authentification
+    ClientContext ctx;
+    ctx.state = WAIT_USERNAME;
+    _contexts[clientFd] = ctx;
+
+    // Ajouter le fd au poll
+    addClient(clientFd);
+
+    std::cout << "client fd: " << clientFd << std::endl;
+	std::cout << "client fd (getter) : " << client.getFd() << std::endl;
+    client.sendMessage("Welcome! Please enter your username:");
+
+    std::cout << "New client connected (fd=" << clientFd << ")" << std::endl;
+}
+
+int Server::parsingUsername(std::string &msg, int fd, ClientContext &ctx)
+{
+	for (size_t i = 0; i < msg.size(); i++)
+	{
+		if (msg[i] == '\n')
+			msg[i] = '\0';
+	}
+	if (msg.size() == 0 || msg.size()  > 9)
+	{
+		write(fd, "Should not be empty and less than 10 char\n", 43);
+		ctx.state = WAIT_USERNAME;
+		return (-1);
+	}
+	int i = 0;
+	while (msg[i])
+	{
+		if (!isalnum(msg[i]) || msg[i] == ' ')
+		{
+			write(fd, "Contains unallowed char\n", 25);
+			ctx.state = WAIT_USERNAME;
+			return (-1);
+		}
+		i++;
+	}
+	return (0);
+}
+
+int Server::parsingRealname(std::string &msg, int fd, ClientContext &ctx)
+{
+	for (size_t i = 0; i < msg.size(); i++)
+	{
+		if (msg[i] == '\n')
+			msg[i] = '\0';
+	}
+	if (msg.size() == 0 || msg.size() > 128)
+	{
+		write(fd, "Should not be empty and less than 128 char\n", 43);
+		ctx.state = WAIT_REALNAME;
+		return (-1);
+	}
+	return (0);
+}
+
+void Server::contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int fd)
+{
+	switch (ctx.state) 
+	{
+		case WAIT_USERNAME:
+			if (parsingUsername(msg, fd, ctx) == -1)
+				return ;
+			cl = Client(msg, "", "", "", fd);
+			ctx.state = WAIT_HOSTNAME;
+			cl.sendMessage("Enter hostname: ");
+			break;
+		case WAIT_HOSTNAME:
+			cl = Client(cl.getUsername(), msg, "", "", fd);
+			ctx.state = WAIT_SERVERNAME;
+			cl.sendMessage("Enter servername: ");
+			break;
+		case WAIT_SERVERNAME:
+			cl = Client(cl.getUsername(), cl.getHostname(), msg, "", fd);
+			ctx.state = WAIT_REALNAME;
+			cl.sendMessage("Enter realname: ");
+			break;
+		case WAIT_REALNAME:
+			if (parsingRealname(msg, fd, ctx) == -1)
+				return ;
+			cl = Client(cl.getUsername(), cl.getHostname(), cl.getServername(), msg, fd);
+			ctx.state = AUTHENTICATED;
+			cl.sendMessage("Authenticated! You can now chat.\n");
+			std::cout << "Client " << fd << " authenticated as " << cl.getUsername() << std::endl;
+			break;
+		case AUTHENTICATED:
+			broadcastMessage(fd, cl.getUsername() + ": " + msg + "\n");
+			break;
+	}
+}
+
+void cmdJoin(int fd, std::string &msg)
+{
+	// A implémenter
+}
+
+void cmdPrivMsg(int fd, std::string &msg)
+{
+	// A implémenter
+}
+
+void cmdQuit(int fd)
+{
+	// A implémenter
+}
+
+static void isCmd(std::string &msg, int fd, Client &cl)
+{
+    // Convertir la commande en majuscules pour éviter les erreurs
+    std::string command = msg.substr(0, msg.find(' '));
+	// ransform() Applique a chaque charactère itérée une fonction et retourn le résultat dans son 3eme argument
+	// Encore une fonction cheaté du c++ :/
+    std::transform(command.begin(), command.end(), command.begin(), ::toupper);
+
+    if (command == "JOIN")
+    {
+        std::cout << "[client: " << fd << "] wants to JOIN a channel" << std::endl;
+        cmdJoin(fd, msg);
+    }
+    else if (command == "PRIVMSG")
+    {
+        cmdPrivMsg(fd, msg);
+    }
+    else if (command == "QUIT")
+    {
+        cmdQuit(fd);
+    }
+    else
+    {
+        cl.sendMessage("Unknown command: " + command + "\r\n");
+    }
+}
+
+void Server::handleClientData(size_t index)
+{
+    int fd = _pfds[index].fd;
+    char buffer[MSG_SIZE];
+    int nbytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
+
+	// Deconnexion et reset du client
+    if (nbytes <= 0)
+    {
+        if (nbytes == 0)
+            std::cout << "Client " << fd << " disconnected" << std::endl;
+
+        close(fd);
+        removeClient(index);
+        _clients.erase(fd);
+        _contexts.erase(fd);
+        return ;
+    }
+
+	if (strncmp(buffer, "JOIN", 4) == 0)
+	{
+		std::cout << "[client: " << fd << "] want to join a channel" << std::endl; 
+	}
+
+    buffer[nbytes] = '\0';
+    std::string msg = trim(buffer);
+
+	// Setup du client et de son context
+    Client &cl = _clients[fd];
+    ClientContext &ctx = _contexts[fd];
+
+
+	// Si le client n'est pas encore authentifié
+    if (ctx.state != AUTHENTICATED)
+    {
+        contextSwitch(msg, ctx, cl, fd);
+        return ;
+    }
+
+    // --- Client maintenant authentifié, parsing commandes ---
+    if (msg.empty())
+        return ;
+	
+	isCmd(msg, fd, cl);
+
+}
 void Server::handleConnections()
 {
     while (true)
@@ -274,8 +502,7 @@ void Server::handleConnections()
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
             if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
             {
-				if (login(i) == -1)
-					break ;
+				 acceptNewClient();
             }
             //si un client a envoyer des données
             //ou si un client se deconnect du server
@@ -286,3 +513,5 @@ void Server::handleConnections()
         }
     }
 }
+
+

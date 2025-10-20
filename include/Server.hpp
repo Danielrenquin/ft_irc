@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
@@ -23,6 +24,7 @@
 //test a réaliser ipv6 et ipv4 normalement ok ?
 
 class Client;
+struct ClientContext;
 
 class Server
 {
@@ -30,6 +32,7 @@ class Server
         int _port;
         int _serverSocket;
         std::map<int, Client> _clients;
+		std::map<int, ClientContext> _contexts;
         std::vector<pollfd> _pfds;
     public:
         Server(int port);
@@ -42,6 +45,18 @@ class Server
 			eServername,
 			eRealname
 		};
+
+		enum ClientState 
+		{
+			WAIT_USERNAME,
+			WAIT_HOSTNAME,
+			WAIT_SERVERNAME,
+			WAIT_REALNAME,
+			AUTHENTICATED
+		};
+
+		
+
 
         void initSocket(char **argv); // création + bind via getaddrinfo
         void startListening(); // accepte les connexions entrantes
@@ -57,6 +72,14 @@ class Server
 		int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
 		int parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index);
         int parsingRealname(int clientFd, int clientIndex, char buffer[4][48], int *index);
+		void contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int fd);
+		int parsingUsername(std::string &msg, int fd, ClientContext &ctx);
+		int parsingRealname(std::string &msg, int fd, ClientContext &ctx);
+
+		void acceptNewClient();
+		void broadcastMessage(int senderFd, const std::string &msg);
+
+		std::string trim(const std::string &s);
 
 };
 
