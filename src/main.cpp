@@ -5,16 +5,18 @@
 
 int main(int argc, char **argv)
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        std::cerr << "Usage: ./ircserv <port>\n";
+        std::cerr << "Usage: ./ircserv <port> <pass>\n";
         return 1;
     }
 
     try
     {
         int port = std::atoi(argv[1]);
+
         Server server(port);
+        server.setPassword(argv[2]);
         server.initSocket(argv);
         server.startListening();
     }

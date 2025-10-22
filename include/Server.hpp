@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
+#include <sstream>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -31,6 +32,8 @@ class Server
     private:
         int _port;
         int _serverSocket;
+		size_t _pfdsIndex; // Index principale de la première boucle for
+		char *_password;
         std::map<int, Client> _clients;
 		std::map<int, ClientContext> _contexts;
         std::vector<pollfd> _pfds;
@@ -48,10 +51,9 @@ class Server
 
 		enum ClientState 
 		{
-			WAIT_USERNAME,
-			WAIT_HOSTNAME,
-			WAIT_SERVERNAME,
-			WAIT_REALNAME,
+			WAIT_PASS,
+			WAIT_NICK,
+			WAIT_USER,
 			AUTHENTICATED
 		};
 
@@ -62,22 +64,32 @@ class Server
         void startListening(); // accepte les connexions entrantes
 
         void addClient(int fd);
-        void removeClient(int index);
-        int login(int clientIndex);
-        void handleClientData(size_t index);
+        void removeClient();
+        //int login(int clientIndex);
+        void handleClientData();
         void handleConnections();
-
-		// Parsing
-		int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
-		int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
-		int parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index);
-        int parsingRealname(int clientFd, int clientIndex, char buffer[4][48], int *index);
-		void contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int fd);
-		int parsingUsername(std::string &msg, int fd, ClientContext &ctx);
-		int parsingRealname(std::string &msg, int fd, ClientContext &ctx);
-
 		void acceptNewClient();
 		void broadcastMessage(int senderFd, const std::string &msg);
+
+		void setPassword(char *password);
+
+		// Parsing
+		//int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
+		//int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
+		//int parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index);
+        //int parsingRealname(int clientFd, int clientIndex, char buffer[4][48], int *index);
+		//void contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int fd);
+		//int parsingUsername(std::string &msg, int fd, ClientContext &ctx);
+		//int parsingRealname(std::string &msg, int fd, ClientContext &ctx);
+		void registerClient(int fd, ClientContext &ctx, Client &cl);
+
+		// CMD
+		void isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl);
+		void cmdQuit(int fd, Client &cl);
+		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
+		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
+		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
+
 
 		std::string trim(const std::string &s);
 

@@ -38,6 +38,7 @@ class Client
 		pollfd *_pfd; // normalement stocké sur le serveur
     protected:
         std::string _username; //devra faire 9 charactères
+		std::string _nickname;
         std::string _hostname;
 		std::string _servername;
         std::string _realname;
@@ -45,7 +46,7 @@ class Client
         //int _port; //port utiliser côté client
     public:
 	 	Client();
-        Client(std::string username, std::string hostname, std::string servername, const std::string realname, int clientFd);
+        Client(std::string username, std::string nickname, std::string hostname, std::string servername, std::string realname, int clientFd);
         ~Client();
 		Client(const Client &other);
 		Client& operator=(const Client &other);
@@ -56,6 +57,7 @@ class Client
 		const std::string& getHostname() const;
 		const std::string& getServername() const;
 		const std::string& getRealname() const;
+		const std::string& getNickname() const;
 		int getFd() const;
 
 		void sendMessage(const std::string &msg) const;

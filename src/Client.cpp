@@ -6,10 +6,11 @@ Client::Client()
 
 }
 
-Client::Client(std::string username, std::string hostname, std::string servername, std::string realname, int clientFd) 
+Client::Client(std::string username, std::string nickname, std::string hostname, std::string servername, std::string realname, int clientFd) 
 {
 	_type = "client";
 	_username = username;
+	_nickname = nickname;
 	_hostname = hostname;
 	_servername = servername;
 	_realname = realname;
@@ -25,6 +26,7 @@ Client::Client(const Client &other)
 {
 	_type = other._type;
 	_username = other._username;
+	_nickname = other._nickname;
 	_hostname = other._hostname;
 	_servername = other._servername;
 	_realname = other._realname;
@@ -37,6 +39,7 @@ Client &Client::operator=(const Client &other)
 	{
 		_type = other._type;
 		_username = other._username;
+		_nickname = other._nickname;
 		_hostname = other._hostname;
 		_servername = other._servername;
 		_realname = other._realname;
@@ -68,6 +71,11 @@ const std::string& Client::getServername() const
 const std::string& Client::getRealname() const 
 { 
 	return (_realname); 
+}
+
+const std::string& Client::getNickname() const
+{
+	return (_nickname); 	
 }
 
 int Client::getFd() const 

@@ -5,6 +5,9 @@
 struct ClientContext 
 {
     Server::ClientState state;
+    bool hasPass;
+    bool hasNick;
+    bool hasUser;
 };
 
 Server::Server(int port) : _port(port)
@@ -17,6 +20,11 @@ Server::~Server()
 {
     if(_serverSocket != -1)
         close(_serverSocket);
+}
+
+void Server::setPassword(char *password)
+{
+    _password = password;
 }
 
 void Server::initSocket(char **argv)
@@ -88,9 +96,9 @@ void Server::addClient(int fd)
     _pfds.push_back(pfd);
 }
 
-void Server::removeClient(int index)
+void Server::removeClient()
 {
-    std::swap(_pfds[index], _pfds.back());
+    std::swap(_pfds[_pfdsIndex], _pfds.back());
     _pfds.pop_back();
 }
 /*
@@ -290,7 +298,7 @@ void Server::broadcastMessage(int senderFd, const std::string &msg)
 }
 
 // Authentification du nouveau client
-void Server::acceptNewClient() 
+void Server::acceptNewClient()
 {
     struct sockaddr_storage clientAddr;
     socklen_t clientlen = sizeof(clientAddr);
@@ -299,28 +307,24 @@ void Server::acceptNewClient()
     if (clientFd == -1)
         return;
 
+    // Mettre en mode non-bloquant
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
 
-    // Créer le client et l'insérer dans la map
-    Client newClient("", "", "", "", clientFd);
-    _clients[clientFd] = newClient;
-    Client &client = _clients[clientFd]; // référence vers l'objet dans la map
-
-    // Créer le contexte d'authentification
+    // Context client
     ClientContext ctx;
-    ctx.state = WAIT_USERNAME;
+    ctx.state = WAIT_PASS;
+    ctx.hasPass = false;
+    ctx.hasNick = false;
+    ctx.hasUser = false;
     _contexts[clientFd] = ctx;
 
-    // Ajouter le fd au poll
+    // Ajouter le client au poll
     addClient(clientFd);
 
-    std::cout << "client fd: " << clientFd << std::endl;
-	std::cout << "client fd (getter) : " << client.getFd() << std::endl;
-    client.sendMessage("Welcome! Please enter your username:");
-
-    std::cout << "New client connected (fd=" << clientFd << ")" << std::endl;
+    std::cout << "New client connected [fd=" << clientFd << "]" << std::endl;
 }
 
+/*
 int Server::parsingUsername(std::string &msg, int fd, ClientContext &ctx)
 {
 	for (size_t i = 0; i < msg.size(); i++)
@@ -330,7 +334,7 @@ int Server::parsingUsername(std::string &msg, int fd, ClientContext &ctx)
 	}
 	if (msg.size() == 0 || msg.size()  > 9)
 	{
-		write(fd, "Should not be empty and less than 10 char\n", 43);
+		//write(fd, "Should not be empty and less than 10 char\n", 43);
 		ctx.state = WAIT_USERNAME;
 		return (-1);
 	}
@@ -339,7 +343,7 @@ int Server::parsingUsername(std::string &msg, int fd, ClientContext &ctx)
 	{
 		if (!isalnum(msg[i]) || msg[i] == ' ')
 		{
-			write(fd, "Contains unallowed char\n", 25);
+			write(fd, "Contains unallowed char\r\n", 26);
 			ctx.state = WAIT_USERNAME;
 			return (-1);
 		}
@@ -397,7 +401,7 @@ void Server::contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int
 			broadcastMessage(fd, cl.getUsername() + ": " + msg + "\n");
 			break;
 	}
-}
+}*/
 
 void cmdJoin(int fd, std::string &msg)
 {
@@ -409,12 +413,17 @@ void cmdPrivMsg(int fd, std::string &msg)
 	// A implémenter
 }
 
-void cmdQuit(int fd)
+void Server::cmdQuit(int fd, Client &cl)
 {
-	// A implémenter
+    std::cout << "Client " << fd << " disconnected" << std::endl;
+    cl.sendMessage("[Server]: Goodbye, " + cl.getUsername() + "\r\n");
+    close(fd);
+    removeClient();
+    _clients.erase(fd);
+    _contexts.erase(fd);
 }
 
-static void isCmd(std::string &msg, int fd, Client &cl)
+void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl)
 {
     // Convertir la commande en majuscules pour éviter les erreurs
     std::string command = msg.substr(0, msg.find(' '));
@@ -433,7 +442,7 @@ static void isCmd(std::string &msg, int fd, Client &cl)
     }
     else if (command == "QUIT")
     {
-        cmdQuit(fd);
+        cmdQuit(fd, cl);
     }
     else
     {
@@ -441,9 +450,87 @@ static void isCmd(std::string &msg, int fd, Client &cl)
     }
 }
 
-void Server::handleClientData(size_t index)
+void Server::registerClient(int fd, ClientContext &ctx, Client &cl)
 {
-    int fd = _pfds[index].fd;
+    ctx.state = AUTHENTICATED;
+
+    std::ostringstream ss;
+    ss << ":server " << cl.getNickname() << " :Welcome to the IRC Network " << cl.getNickname() << "!" << cl.getUsername() << "@localhost\r\n";
+    cl.sendMessage(ss.str());
+
+    std::cout << "Client " << fd << " registered as " << cl.getNickname() << " (" << cl.getUsername() << ")" << std::endl;
+}
+
+
+void Server::cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl)
+{
+    std::string pass;
+    iss >> pass;
+
+    if (pass.empty()) 
+    {
+        cl.sendMessage("ERROR :Password required\r\n");
+        return ;
+    }
+
+    if (pass != _password) 
+    { 
+        // _password défini au lancement du serveur
+        cl.sendMessage("ERROR :Invalid password\r\n");
+        close(fd);
+        return;
+    }
+
+    ctx.hasPass = true;
+    cl.sendMessage(":server NOTICE * :Password accepted\r\n");
+
+    if (ctx.hasNick && ctx.hasUser)
+        registerClient(fd, ctx, cl);
+}
+
+void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl)
+{
+    std::string username, hostname, servername, realname;
+    iss >> username >> hostname >> servername;
+    getline(iss, realname); // peut contenir espaces, commence souvent par ':'
+
+    if (username.empty()) 
+    {
+        cl.sendMessage("461 * USER :Not enough parameters\r\n");
+        return;
+    }
+
+    cl = Client(username, "", "", "", realname, fd); // A voir si les données ne seront pas écrasé lors de la construction
+    ctx.hasUser = true;
+
+    if (ctx.hasPass && ctx.hasNick)
+        registerClient(fd, ctx, cl);
+}
+
+
+void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl)
+{
+    std::string nick;
+    iss >> nick;
+
+    if (nick.empty()) 
+    {
+        cl.sendMessage("431 * :No nickname given\r\n");
+        return;
+    }
+
+    cl = Client("", nick, "", "", "", fd); // A voir si les données ne seront pas écrasé lors de la construction
+    ctx.hasNick = true;
+
+    if (ctx.hasPass && ctx.hasUser)
+        registerClient(fd, ctx, cl);
+}
+
+
+
+void Server::handleClientData()
+{
+    int fd = _pfds[_pfdsIndex].fd;
     char buffer[MSG_SIZE];
     int nbytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
 
@@ -454,7 +541,7 @@ void Server::handleClientData(size_t index)
             std::cout << "Client " << fd << " disconnected" << std::endl;
 
         close(fd);
-        removeClient(index);
+        removeClient();
         _clients.erase(fd);
         _contexts.erase(fd);
         return ;
@@ -472,19 +559,23 @@ void Server::handleClientData(size_t index)
     Client &cl = _clients[fd];
     ClientContext &ctx = _contexts[fd];
 
+    // Authentification du client
+    std::istringstream iss(msg);
+    std::string command;
+    iss >> command;
 
-	// Si le client n'est pas encore authentifié
-    if (ctx.state != AUTHENTICATED)
-    {
-        contextSwitch(msg, ctx, cl, fd);
-        return ;
-    }
+    if (command == "PASS")
+        cmdPass(fd, iss, ctx, cl);
+    else if (command == "NICK")
+        cmdNick(fd, iss, ctx, cl);
+    else if (command == "USER")
+        cmdUser(fd, iss, ctx, cl);
+    else if (ctx.state != AUTHENTICATED)
+       cl.sendMessage("ERROR :You must register first\r\n");
+    else
+        isCmd(command, fd, iss, cl);
 
-    // --- Client maintenant authentifié, parsing commandes ---
-    if (msg.empty())
-        return ;
-	
-	isCmd(msg, fd, cl);
+	//isCmd(msg, fd, cl);
 
 }
 void Server::handleConnections()
@@ -496,19 +587,19 @@ void Server::handleConnections()
         if(pollResult < 0)
             throw std::runtime_error("poll failled");
 
-        for(size_t i = 0; i < _pfds.size(); i++)
+        for(_pfdsIndex = 0; _pfdsIndex < _pfds.size(); _pfdsIndex++)
         {
             //un nouveaux client se logue sur le server
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
-            if(_pfds[i].fd == _serverSocket && (_pfds[i].revents & POLLIN))
+            if(_pfds[_pfdsIndex].fd == _serverSocket && (_pfds[_pfdsIndex].revents & POLLIN))
             {
 				 acceptNewClient();
             }
             //si un client a envoyer des données
             //ou si un client se deconnect du server
-            else if (_pfds[i].revents &POLLIN)
+            else if (_pfds[_pfdsIndex].revents &POLLIN)
             {
-                handleClientData(i);
+                handleClientData();
             }
         }
     }
