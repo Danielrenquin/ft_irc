@@ -310,6 +310,9 @@ void Server::acceptNewClient()
     // Mettre en mode non-bloquant
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
 
+	Client newClient("", "", "", "", "", clientFd);
+    _clients[clientFd] = newClient;
+
     // Context client
     ClientContext ctx;
     ctx.state = WAIT_PASS;
@@ -403,14 +406,60 @@ void Server::contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int
 	}
 }*/
 
-void cmdJoin(int fd, std::string &msg)
+void Server::cmdJoin(int fd, std::string &msg, Client &cl)
 {
 	// A implémenter
 }
 
-void cmdPrivMsg(int fd, std::string &msg)
+const int Server::getClientFdByUsername(std::string nickname)
 {
-	// A implémenter
+	// Itérer une map
+	for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); it++)
+	{
+		Client &cl = it->second; // Ici it->first correspond a l'id et it->second correspond au Client
+		if (cl.getNickname() == nickname)
+		{
+			return (cl.getFd());
+		}
+	}
+	return (0);
+}
+
+// TODO: FIX le communication bidirectionnelle, seulement le first user peut envoyer des messages (erreurs de stockage des fds dans map ??)
+void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
+{
+	std::string targetUser, userMsg;
+	iss >> targetUser;
+	std::cout << "target user: " << targetUser << std::endl;
+	if (targetUser.empty())
+	{
+		cl.sendMessage("ERROR :Target User required\r\n");
+		return ;
+	}
+	//std::cout << "privmsg test: " << msg << std::endl;
+	//std::string targetUser = msg.substr(msg.find(' '), msg.find(':'));
+	//std::cout << "privmsg test: " << targetUser << std::endl;
+	iss >> userMsg;
+	if (userMsg[0] == ':')
+		userMsg[0] = '\0';
+	std::cout << "user msg: " << userMsg << std::endl;
+	
+	int TargetFd = getClientFdByUsername(targetUser);
+	if (TargetFd == 0)
+	{
+		cl.sendMessage("ERROR :Target User not found in the server\r\n");
+		return ;
+	}
+	Client &clTarget = _clients[TargetFd];
+
+	if (TargetFd > 0) // User existe
+	{
+		//std::string userMsg = msg.substr(msg.find(':'), msg.size());
+		clTarget.sendMessage(userMsg);
+		cl.sendMessage(userMsg);
+	}
+	
+	
 }
 
 void Server::cmdQuit(int fd, Client &cl)
@@ -425,6 +474,7 @@ void Server::cmdQuit(int fd, Client &cl)
 
 void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl)
 {
+	std::cout << "iscmd test: " << msg << std::endl;
     // Convertir la commande en majuscules pour éviter les erreurs
     std::string command = msg.substr(0, msg.find(' '));
 	// ransform() Applique a chaque charactère itérée une fonction et retourn le résultat dans son 3eme argument
@@ -434,11 +484,11 @@ void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl
     if (command == "JOIN")
     {
         std::cout << "[client: " << fd << "] wants to JOIN a channel" << std::endl;
-        cmdJoin(fd, msg);
+        cmdJoin(fd, msg, cl);
     }
     else if (command == "PRIVMSG")
     {
-        cmdPrivMsg(fd, msg);
+        cmdPrivMsg(fd, iss, cl);
     }
     else if (command == "QUIT")
     {
@@ -559,6 +609,8 @@ void Server::handleClientData()
     Client &cl = _clients[fd];
     ClientContext &ctx = _contexts[fd];
 
+	std::cout << "client fd (clientdata); " << cl.getFd() << std::endl;
+
     // Authentification du client
     std::istringstream iss(msg);
     std::string command;
@@ -573,9 +625,7 @@ void Server::handleClientData()
     else if (ctx.state != AUTHENTICATED)
        cl.sendMessage("ERROR :You must register first\r\n");
     else
-        isCmd(command, fd, iss, cl);
-
-	//isCmd(msg, fd, cl);
+        isCmd(msg, fd, iss, cl);
 
 }
 void Server::handleConnections()

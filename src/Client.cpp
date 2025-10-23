@@ -83,6 +83,8 @@ int Client::getFd() const
 	return (_clientFd);
 }
 
+
+
 void Client::setPoll(pollfd *pfd)
 {
 	_pfd = pfd;

@@ -71,7 +71,9 @@ class Server
 		void acceptNewClient();
 		void broadcastMessage(int senderFd, const std::string &msg);
 
+		// Getter & Setter
 		void setPassword(char *password);
+		const int getClientFdByUsername(std::string username);
 
 		// Parsing
 		//int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
@@ -86,6 +88,8 @@ class Server
 		// CMD
 		void isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl);
 		void cmdQuit(int fd, Client &cl);
+		void cmdJoin(int fd, std::string &msg, Client &c);
+		void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
 		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
