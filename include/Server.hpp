@@ -36,6 +36,7 @@ class Server
 		char *_password;
         std::map<int, Client> _clients;
 		std::map<int, ClientContext> _contexts;
+		std::map<int, Channel> _channelList;
         std::vector<pollfd> _pfds;
     public:
         Server(int port);
@@ -88,14 +89,15 @@ class Server
 		// CMD
 		void isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl);
 		void cmdQuit(int fd, Client &cl);
-		void cmdJoin(int fd, std::string &msg, Client &c);
+		void cmdJoin(int fd, std::istringstream &iss, Client &cl);
 		void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
 		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
-
+		void cmdJoinAnExistingChannel();
 
 		std::string trim(const std::string &s);
+		int compareChannelName(std::string &channelName);
 
 };
 

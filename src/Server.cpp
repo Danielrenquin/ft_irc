@@ -1,4 +1,7 @@
 #include "Server.hpp"
+#include "Channel.hpp"
+
+class Channel;
 
 // Structure de context d'authentification
 // Permet de savoir l'état actuel d'authentification du client
@@ -406,9 +409,53 @@ void Server::contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int
 	}
 }*/
 
-void Server::cmdJoin(int fd, std::string &msg, Client &cl)
+int Server::compareChannelName(std::string &channelName)
 {
-	// A implémenter
+	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); it++)
+	{
+		Channel &ch = it->second; // Ici it->first correspond a l'id et it->second correspond au Client
+		if (ch.getName() == channelName)
+		{
+			return (1);
+		}
+	}
+	return (0);
+}
+
+void Server::cmdJoinAnExistingChannel()
+{
+
+}
+
+void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
+{
+    static int id = 0;
+    bool isPass = false;
+    std::string userName = cl.getNickname();
+    std::string channelName, pass;
+	iss >> channelName;
+	std::cout << "channel: " << channelName << std::endl;
+	if (channelName.empty())
+	{
+        cl.sendMessage("ERROR :Channel name required\r\n");
+		return ;
+	}
+    // Si le channel existe ne pas cree un nouvel objet
+    if (compareChannelName(channelName) == 1)
+    {
+        cmdJoinAnExistingChannel();
+        return ;
+    }    
+    iss >> pass;
+    Channel newChannel(id, "", "", "");
+    if (pass.empty())
+        Channel newChannel(id, channelName, userName, userName);
+    else
+        Channel newChannel(id, channelName, pass, userName, userName);
+    
+    Channel &ch = newChannel;
+    _channelList[id++] = newChannel;
+    
 }
 
 const int Server::getClientFdByNickname(std::string nickname)
@@ -487,7 +534,7 @@ void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl
     if (command == "JOIN")
     {
         std::cout << "[client: " << fd << "] wants to JOIN a channel" << std::endl;
-        cmdJoin(fd, msg, cl);
+        cmdJoin(fd, iss, cl);
     }
     else if (command == "PRIVMSG")
     {
