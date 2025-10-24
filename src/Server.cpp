@@ -411,7 +411,7 @@ void Server::cmdJoin(int fd, std::string &msg, Client &cl)
 	// A implémenter
 }
 
-const int Server::getClientFdByUsername(std::string nickname)
+const int Server::getClientFdByNickname(std::string nickname)
 {
 	// Itérer une map
 	for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); it++)
@@ -425,7 +425,7 @@ const int Server::getClientFdByUsername(std::string nickname)
 	return (0);
 }
 
-// TODO: FIX le communication bidirectionnelle, seulement le first user peut envoyer des messages (erreurs de stockage des fds dans map ??)
+// TODO: implémenter l'envois de message dans les cannaux
 void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string targetUser, userMsg;
@@ -444,17 +444,20 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 		userMsg[0] = '\0';
 	std::cout << "user msg: " << userMsg << std::endl;
 	
-	int TargetFd = getClientFdByUsername(targetUser);
-	if (TargetFd == 0)
+	int targetFd = getClientFdByNickname(targetUser);
+	if (targetFd == 0)
 	{
 		cl.sendMessage("ERROR :Target User not found in the server\r\n");
 		return ;
 	}
-	Client &clTarget = _clients[TargetFd];
+	Client &clTarget = _clients[targetFd];
 
-	if (TargetFd > 0) // User existe
+	if (targetFd > 0) // User existe
 	{
+        //std::cout << "USER FOUND: " << std::endl;
 		//std::string userMsg = msg.substr(msg.find(':'), msg.size());
+        //write(targetFd, userMsg.c_str(), userMsg.size());
+        //write(fd, userMsg.c_str(), userMsg.size());
 		clTarget.sendMessage(userMsg);
 		cl.sendMessage(userMsg);
 	}

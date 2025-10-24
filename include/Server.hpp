@@ -73,7 +73,7 @@ class Server
 
 		// Getter & Setter
 		void setPassword(char *password);
-		const int getClientFdByUsername(std::string username);
+		const int getClientFdByNickname(std::string nickname);
 
 		// Parsing
 		//int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
