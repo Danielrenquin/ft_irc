@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
+#include <set>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -25,6 +26,7 @@
 //test a réaliser ipv6 et ipv4 normalement ok ?
 
 class Client;
+class Channel;
 struct ClientContext;
 
 class Server
@@ -75,7 +77,7 @@ class Server
 		// Getter & Setter
 		void setPassword(char *password);
 		const int getClientFdByNickname(std::string nickname);
-
+		const int getChannelIdByName(std::string &channelName);
 		// Parsing
 		//int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
 		//int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
@@ -94,10 +96,13 @@ class Server
 		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
-		void cmdJoinAnExistingChannel();
+		void cmdJoinAnExistingChannel(int fd, Client &cl, int targetId);
 
 		std::string trim(const std::string &s);
-		int compareChannelName(std::string &channelName);
+
+		bool isUserAlreadyInChannel(int fd, int targetId);
+		bool isUserInAnyChannel(int fd);
+		
 
 };
 

@@ -409,28 +409,59 @@ void Server::contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int
 	}
 }*/
 
-int Server::compareChannelName(std::string &channelName)
+const int Server::getChannelIdByName(std::string &channelName)
 {
 	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); it++)
 	{
 		Channel &ch = it->second; // Ici it->first correspond a l'id et it->second correspond au Client
+		std::cout << "current channel name: " << ch.getName() << std::endl;
 		if (ch.getName() == channelName)
 		{
-			return (1);
+			std::cout << "ID FOUND" << std::endl;
+			return (ch.getId());
 		}
 	}
-	return (0);
+	return (-1);
 }
 
-void Server::cmdJoinAnExistingChannel()
+bool Server::isUserInAnyChannel(int fd)
 {
+	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); ++it)
+	{
+		Channel &ch = it->second;
+		const std::set<int> &users = ch.getUserList();
+
+		if (users.find(fd) != users.end())
+			return (true);
+	}
+	return (false);
+}
+
+bool Server::isUserAlreadyInChannel(int fd, int targetId)
+{
+	Channel &ch = _channelList[targetId];
+	for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+	{
+		if (*it == fd)
+			return (true);
+	}
+	return (false);
+}
+
+void Server::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
+{
+	Channel &ch = _channelList[targetId];
+
+	if (!isUserAlreadyInChannel(fd, targetId)) 
+		ch.addUser(fd);
+	else 
+		cl.sendMessage("NOTICE : You are already in this channel\r\n");
 
 }
 
 void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
 {
     static int id = 0;
-    bool isPass = false;
     std::string userName = cl.getNickname();
     std::string channelName, pass;
 	iss >> channelName;
@@ -440,21 +471,38 @@ void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         cl.sendMessage("ERROR :Channel name required\r\n");
 		return ;
 	}
-    // Si le channel existe ne pas cree un nouvel objet
-    if (compareChannelName(channelName) == 1)
+
+	// Si le channel existe add le clientFd au set
+	int targetId = getChannelIdByName(channelName);
+    if (targetId != -1)
     {
-        cmdJoinAnExistingChannel();
+		cmdJoinAnExistingChannel(fd, cl, targetId);
+		Channel &ch = _channelList[targetId];
+		// DEBUG
+		std::cout << "existing channel: " << targetId << std::endl;
+		for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+		{
+			std::cout << "user set: " << *it << std::endl;
+		}
         return ;
-    }    
+    }  
+
+	// Si le channel existe ne pas cree un nouvel objet
     iss >> pass;
-    Channel newChannel(id, "", "", "");
-    if (pass.empty())
-        Channel newChannel(id, channelName, userName, userName);
-    else
-        Channel newChannel(id, channelName, pass, userName, userName);
-    
+	// Operateur ternaire afin de créer qu'une seule instances de channel
+	Channel newChannel = pass.empty() ? Channel(id, channelName, fd, fd) : Channel(id, channelName, pass, fd, fd);
+
+	std::cout << id << std::endl;
     Channel &ch = newChannel;
-    _channelList[id++] = newChannel;
+    	_channelList[id++] = newChannel;
+	ch.addOperator(fd);
+	ch.addUser(fd);
+	
+	// DEBUG
+	for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+	{
+		std::cout << "user set: " << *it << std::endl;
+	}
     
 }
 
@@ -524,7 +572,6 @@ void Server::cmdQuit(int fd, Client &cl)
 
 void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl)
 {
-	std::cout << "iscmd test: " << msg << std::endl;
     // Convertir la commande en majuscules pour éviter les erreurs
     std::string command = msg.substr(0, msg.find(' '));
 	// ransform() Applique a chaque charactère itérée une fonction et retourn le résultat dans son 3eme argument
@@ -647,11 +694,6 @@ void Server::handleClientData()
         return ;
     }
 
-	if (strncmp(buffer, "JOIN", 4) == 0)
-	{
-		std::cout << "[client: " << fd << "] want to join a channel" << std::endl; 
-	}
-
     buffer[nbytes] = '\0';
     std::string msg = trim(buffer);
 
@@ -677,7 +719,14 @@ void Server::handleClientData()
     else
         isCmd(msg, fd, iss, cl);
 
+	if (isUserInAnyChannel(fd))
+	{
+		//TODO: implémenter une fonction qui enverra les msg du user dans ses channels
+	}
+	
+
 }
+
 void Server::handleConnections()
 {
     while (true)
