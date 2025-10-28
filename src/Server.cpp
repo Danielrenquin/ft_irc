@@ -490,7 +490,7 @@ void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
 	// Si le channel existe ne pas cree un nouvel objet
     iss >> pass;
 	// Operateur ternaire afin de créer qu'une seule instances de channel
-	Channel newChannel = pass.empty() ? Channel(id, channelName, fd, fd) : Channel(id, channelName, pass, fd, fd);
+	Channel newChannel = pass.empty() ? Channel(id, channelName, fd, fd) : Channel(id, channelName, pass, fd, fd);   
 
 	std::cout << id << std::endl;
     Channel &ch = newChannel;
@@ -559,7 +559,7 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 	
 	
 }
-
+// TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
 void Server::cmdQuit(int fd, Client &cl)
 {
     std::cout << "Client " << fd << " disconnected" << std::endl;
@@ -719,10 +719,10 @@ void Server::handleClientData()
     else
         isCmd(msg, fd, iss, cl);
 
-	if (isUserInAnyChannel(fd))
+	/*if (isUserInAnyChannel(fd))
 	{
 		//TODO: implémenter une fonction qui enverra les msg du user dans ses channels
-	}
+	}*/
 	
 
 }
