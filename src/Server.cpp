@@ -520,7 +520,7 @@ const int Server::getClientFdByNickname(std::string nickname)
 	return (0);
 }
 
-// TODO: implémenter l'envois de message dans les cannaux
+// TODO: implémenter l'envois de message dans les cannaux multiples ainsi qu'utilisateur multiple
 void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string targetUser, userMsg;
@@ -553,6 +553,7 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 		//std::string userMsg = msg.substr(msg.find(':'), msg.size());
         //write(targetFd, userMsg.c_str(), userMsg.size());
         //write(fd, userMsg.c_str(), userMsg.size());
+        std::string senderName = cl.getNickname();
 		clTarget.sendMessage(userMsg);
 		cl.sendMessage(userMsg);
 	}
@@ -644,8 +645,17 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
     if (username.empty()) 
     {
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
-        return;
+        return ;
     }
+    if (username.find_first_of(",&#") == std::string::npos 
+        || hostname.find_first_of(",&#") == std::string::npos
+        || servername.find_first_of(",&#") == std::string::npos
+        || realname.find_first_of(",&#") == std::string::npos)
+    {
+        cl.sendMessage("USER :Unauthorized characters\r\n");
+        return ;
+    }
+    
 
     cl = Client(username, "", "", "", realname, fd); // A voir si les données ne seront pas écrasé lors de la construction
     ctx.hasUser = true;
@@ -663,8 +673,14 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
     if (nick.empty()) 
     {
         cl.sendMessage("431 * :No nickname given\r\n");
-        return;
+        return ;
     }
+    if (nick.find_first_of(",&#") == std::string::npos)
+    {
+        cl.sendMessage("NICK :Unauthorized characters\r\n");
+        return ;
+    }
+    
 
     cl = Client("", nick, "", "", "", fd); // A voir si les données ne seront pas écrasé lors de la construction
     ctx.hasNick = true;
