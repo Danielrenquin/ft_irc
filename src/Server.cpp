@@ -5,7 +5,7 @@ class Channel;
 
 // Structure de context d'authentification
 // Permet de savoir l'état actuel d'authentification du client
-struct ClientContext 
+struct ClientContext
 {
     Server::ClientState state;
     bool hasPass;
@@ -104,194 +104,23 @@ void Server::removeClient()
     std::swap(_pfds[_pfdsIndex], _pfds.back());
     _pfds.pop_back();
 }
-/*
-int Server::receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index)
-{
-	//const int BUFFER_SIZE = 1024;
-    //char *buffer = new char[BUFFER_SIZE];
-    
-    //if (!buffer) 
-		//return (NULL);
-    
-    int nbytes = 0;
-    
-    while (true)
-    {
-        nbytes = recv(clientFd, buffer[*index], sizeof(buffer[*index]), 0);
-        //if (nbytes == -1)
-			//throw std::runtime_error("recv failed");
-        if (nbytes > 0) 
-			break ;
-		if (nbytes == 0)
-		{
-			std::cout << "Client " << clientFd << " disconnected" << std::endl;
-			close(clientFd);
-        	removeClient(clientIndex);
-			return (-1);
-		}
-		
-    }
-    buffer[*index][nbytes] = '\0';
-    return (0);
-}
-
-int Server::parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index)
-{
-	write(clientFd, "write your username: ", 22);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, index) == -1)
-		return (-1);
-	for (size_t i = 0; i < strlen(buffer[eUsername]); i++)
-	{
-		if (buffer[eUsername][i] == '\n')
-			buffer[eUsername][i] = '\0';
-	}
-	if (strlen(buffer[eUsername]) == 0 || strlen(buffer[eUsername]) > 9)
-	{
-		write(clientFd, "Should not be empty and less than 10 char\n", 43);
-		if (parsingUsername(clientFd, clientIndex, buffer, index))
-			return (-1);
-	}
-	int i = 0;
-	while (buffer[eUsername][i])
-	{
-		if (!isalnum(buffer[eUsername][i]) || buffer[eUsername][i] == ' ')
-		{
-			write(clientFd, "Contains unallowed char\n", 25);
-			if (parsingUsername(clientFd, clientIndex, buffer, index))
-				return (-1);
-		}
-		i++;
-	}
-	return (0);
-}
-
-int Server::parsingRealname(int clientFd, int clientIndex, char buffer[4][48], int *index)
-{
-	write(clientFd, "write your realname: ", 22);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, index) == -1)
-		return (-1);
-	for (size_t i = 0; i < strlen(buffer[eUsername]); i++)
-	{
-		if (buffer[eUsername][i] == '\n')
-			buffer[eUsername][i] = '\0';
-	}
-	if (strlen(buffer[eUsername]) == 0 || strlen(buffer[eUsername]) > 128)
-	{
-		write(clientFd, "Should not be empty and less than 128 char\n", 43);
-		if (parsingUsername(clientFd, clientIndex, buffer, index))
-			return (-1);
-	}
-}
-
-int Server::parsingInputs(int clientFd, int clientIndex, char buffer[4][48])
-{
-	int index = 0;
-
-	parsingUsername(clientFd, clientIndex, buffer, &index); // <-- index 0, username
-
-	index++;
-	write(clientFd, "write your hostname: ", 22);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 1, hostname, ignoré dans rfc1459 par le serveur
-		return (-1);
-
-	index++;
-	write(clientFd, "write your servername: ", 24);
-	if (receiveDataFromUser(clientFd, clientIndex, buffer, &index) == -1) // <-- index 2, servername, ignoré dans rfc1459 par le serveur
-		return (-1);
-
-	index++;
-    parsingRealname(clientFd, clientIndex, buffer, &index); // <-- index 3, realname
-
-	std::cout << buffer[eUsername] << std::endl;
-	std::cout << buffer[eHostname] << std::endl;
-	std::cout << buffer[eServername] << std::endl;
-	std::cout << buffer[eRealname] << std::endl;
-	return (0);
-}
-
-int Server::login(int clientIndex)
-{
-	static int mapId = 0;
-	char buffer[4][48] = {}; // <-- utiliser l'index 0 à 3 pour construire un client
-    struct sockaddr_storage clientAddr;
-    socklen_t clientlen = sizeof(clientAddr);
-    int clientFd = accept(_serverSocket, (struct sockaddr*)&clientAddr, &clientlen);
-    if(clientFd == -1)
-        return (-1);
-    fcntl(clientFd, F_SETFL, O_NONBLOCK);
-	
-	if (parsingInputs(clientFd, clientIndex, buffer) == -1)
-		return (-1);
-	Client newClient(buffer[eUsername], 
-					buffer[eHostname],
-					buffer[eServername],
-					buffer[eRealname],
-					clientFd);
-    //prend input et accept le client
-    // construction du client --> conteneur de client
-	_clients.insert(std::make_pair(mapId++, newClient));
-	// Push pollfd dans le client
-    addClient(clientFd); //ajout a un conteneur de client
-    std::cout << "New client fd " << clientFd << std::endl;
-	return (0);
-}
-
-void Server::handleClientData(size_t index)
-{
-    char buffer[MSG_SIZE];
-    int fd = _pfds[index].fd;
-    int nbytes = recv(fd, buffer, sizeof(buffer), 0);
-
-    if(nbytes <= 0)
-    {
-        if(nbytes == 0)
-            std::cout << "Client " << fd << " disconnected" << std::endl;
-        else
-            throw std::runtime_error("recv failed");
-        close(fd);
-        removeClient(index);
-    }
-    else
-    {
-		// Parsing commandes
-		buffer[nbytes] = '\0';
-
-		if (strncmp(buffer, "JOIN", 4) == 0)
-		{
-			std::cout << "[client: " << fd << "] want to join a channel" << std::endl;
-		}
-		// Implemter les autres parsing de commandes
-		
-		// Boucle afin d'envoyer le message aux autres clients
-        for(size_t j = 1; j < _pfds.size(); ++j)
-        {
-            std::cout << "[recv FD " << fd << "]" << buffer << std::endl;
-            int dest = _pfds[j].fd;
-            // cette condition permet de pas envoyer le message 
-            // a celui meme qui l'envoie
-            if(dest != fd)
-                send(dest, buffer, nbytes, 0);
-        }
-    }
-}*/
-
 
 // Permet de parser le buffer
-std::string Server::trim(const std::string &s) 
+std::string Server::trim(const std::string &s)
 {
     size_t start = s.find_first_not_of(" \n\r\t");
     size_t end = s.find_last_not_of(" \n\r\t");
 
-    if (start == std::string::npos) 
+    if (start == std::string::npos)
 		return ("");
 
     return (s.substr(start, end - start + 1));
 }
 
 // Envois les messages sur les autres fd
-void Server::broadcastMessage(int senderFd, const std::string &msg) 
+void Server::broadcastMessage(int senderFd, const std::string &msg)
 {
-    for (size_t i = 1; i < _pfds.size(); ++i) 
+    for (size_t i = 1; i < _pfds.size(); ++i)
 	{
         int fd = _pfds[i].fd;
 
@@ -329,85 +158,6 @@ void Server::acceptNewClient()
 
     std::cout << "New client connected [fd=" << clientFd << "]" << std::endl;
 }
-
-/*
-int Server::parsingUsername(std::string &msg, int fd, ClientContext &ctx)
-{
-	for (size_t i = 0; i < msg.size(); i++)
-	{
-		if (msg[i] == '\n')
-			msg[i] = '\0';
-	}
-	if (msg.size() == 0 || msg.size()  > 9)
-	{
-		//write(fd, "Should not be empty and less than 10 char\n", 43);
-		ctx.state = WAIT_USERNAME;
-		return (-1);
-	}
-	int i = 0;
-	while (msg[i])
-	{
-		if (!isalnum(msg[i]) || msg[i] == ' ')
-		{
-			write(fd, "Contains unallowed char\r\n", 26);
-			ctx.state = WAIT_USERNAME;
-			return (-1);
-		}
-		i++;
-	}
-	return (0);
-}
-
-int Server::parsingRealname(std::string &msg, int fd, ClientContext &ctx)
-{
-	for (size_t i = 0; i < msg.size(); i++)
-	{
-		if (msg[i] == '\n')
-			msg[i] = '\0';
-	}
-	if (msg.size() == 0 || msg.size() > 128)
-	{
-		write(fd, "Should not be empty and less than 128 char\n", 43);
-		ctx.state = WAIT_REALNAME;
-		return (-1);
-	}
-	return (0);
-}
-
-void Server::contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int fd)
-{
-	switch (ctx.state) 
-	{
-		case WAIT_USERNAME:
-			if (parsingUsername(msg, fd, ctx) == -1)
-				return ;
-			cl = Client(msg, "", "", "", fd);
-			ctx.state = WAIT_HOSTNAME;
-			cl.sendMessage("Enter hostname: ");
-			break;
-		case WAIT_HOSTNAME:
-			cl = Client(cl.getUsername(), msg, "", "", fd);
-			ctx.state = WAIT_SERVERNAME;
-			cl.sendMessage("Enter servername: ");
-			break;
-		case WAIT_SERVERNAME:
-			cl = Client(cl.getUsername(), cl.getHostname(), msg, "", fd);
-			ctx.state = WAIT_REALNAME;
-			cl.sendMessage("Enter realname: ");
-			break;
-		case WAIT_REALNAME:
-			if (parsingRealname(msg, fd, ctx) == -1)
-				return ;
-			cl = Client(cl.getUsername(), cl.getHostname(), cl.getServername(), msg, fd);
-			ctx.state = AUTHENTICATED;
-			cl.sendMessage("Authenticated! You can now chat.\n");
-			std::cout << "Client " << fd << " authenticated as " << cl.getUsername() << std::endl;
-			break;
-		case AUTHENTICATED:
-			broadcastMessage(fd, cl.getUsername() + ": " + msg + "\n");
-			break;
-	}
-}*/
 
 const int Server::getChannelIdByName(std::string &channelName)
 {
@@ -452,9 +202,9 @@ void Server::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
 {
 	Channel &ch = _channelList[targetId];
 
-	if (!isUserAlreadyInChannel(fd, targetId)) 
+	if (!isUserAlreadyInChannel(fd, targetId))
 		ch.addUser(fd);
-	else 
+	else
 		cl.sendMessage("NOTICE : You are already in this channel\r\n");
 
 }
@@ -485,25 +235,25 @@ void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
 			std::cout << "user set: " << *it << std::endl;
 		}
         return ;
-    }  
+    }
 
 	// Si le channel existe ne pas cree un nouvel objet
     iss >> pass;
 	// Operateur ternaire afin de créer qu'une seule instances de channel
-	Channel newChannel = pass.empty() ? Channel(id, channelName, fd, fd) : Channel(id, channelName, pass, fd, fd);   
+	Channel newChannel = pass.empty() ? Channel(id, channelName, fd, fd) : Channel(id, channelName, pass, fd, fd);
 
 	std::cout << id << std::endl;
     Channel &ch = newChannel;
     	_channelList[id++] = newChannel;
 	ch.addOperator(fd);
 	ch.addUser(fd);
-	
+
 	// DEBUG
 	for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
 	{
 		std::cout << "user set: " << *it << std::endl;
 	}
-    
+
 }
 
 const int Server::getClientFdByNickname(std::string nickname)
@@ -538,7 +288,7 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 	if (userMsg[0] == ':')
 		userMsg[0] = '\0';
 	std::cout << "user msg: " << userMsg << std::endl;
-	
+
 	int targetFd = getClientFdByNickname(targetUser);
 	if (targetFd == 0)
 	{
@@ -556,8 +306,8 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 		clTarget.sendMessage(userMsg);
 		cl.sendMessage(userMsg);
 	}
-	
-	
+
+
 }
 // TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
 void Server::cmdQuit(int fd, Client &cl)
@@ -568,6 +318,38 @@ void Server::cmdQuit(int fd, Client &cl)
     removeClient();
     _clients.erase(fd);
     _contexts.erase(fd);
+}
+
+void Server::cmdkick(int fd, std::istringstream &iss, Client &cl)
+{
+    std::string channelName, targetNick, reason;
+
+    iss >> channelName >> targetNick;
+    std::getline(iss, reason);
+
+    if(channelName.empty() || targetNick.empty())
+    {
+        cl.sendMessage("ERR_NEEDMOREPARAMS");
+        return;
+    }
+    if(channelName[0] != '#' && channelName[0] != '$')
+    {
+        cl.sendMessage("ERR_BADCHANMASK");
+        return;
+    }
+    if(getChannelIdByName(channelName))
+    {
+        cl.sendMessage("ERR_NOSUCHCHANNEL");
+        return;
+    }
+    if(!reason.empty() && reason[0] == ' ')
+        reason = reason.substr(1);
+    if(!reason.empty() && reason[0] == ':')
+        reason = reason.substr(1);
+    std::cout << "channelName: " << channelName << std::endl;
+    std::cout << "targetNick: " << targetNick << std::endl;
+    std::cout << "reason: " << reason << std::endl;
+    return;
 }
 
 void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl)
@@ -590,6 +372,22 @@ void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl
     else if (command == "QUIT")
     {
         cmdQuit(fd, cl);
+    }
+    else if (command == "KICK")
+    {
+        cmdkick(fd, iss, cl);
+    }
+    else if (command == "INVITE")
+    {
+        //cmdInvite(fd, iss, cl);
+    }
+    else if (command == "TOPIC")
+    {
+        //cmdTopic(fd, iss, cl);
+    }
+    else if (command == "MODE")
+    {
+        //cmdMode(fd, iss, cl);
     }
     else
     {
@@ -614,14 +412,14 @@ void Server::cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client
     std::string pass;
     iss >> pass;
 
-    if (pass.empty()) 
+    if (pass.empty())
     {
         cl.sendMessage("ERROR :Password required\r\n");
         return ;
     }
 
-    if (pass != _password) 
-    { 
+    if (pass != _password)
+    {
         // _password défini au lancement du serveur
         cl.sendMessage("ERROR :Invalid password\r\n");
         close(fd);
@@ -641,7 +439,7 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
     iss >> username >> hostname >> servername;
     getline(iss, realname); // peut contenir espaces, commence souvent par ':'
 
-    if (username.empty()) 
+    if (username.empty())
     {
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
         return;
@@ -660,7 +458,7 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
     std::string nick;
     iss >> nick;
 
-    if (nick.empty()) 
+    if (nick.empty())
     {
         cl.sendMessage("431 * :No nickname given\r\n");
         return;
@@ -723,7 +521,7 @@ void Server::handleClientData()
 	{
 		//TODO: implémenter une fonction qui enverra les msg du user dans ses channels
 	}*/
-	
+
 
 }
 
@@ -753,5 +551,3 @@ void Server::handleConnections()
         }
     }
 }
-
-

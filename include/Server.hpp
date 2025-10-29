@@ -52,16 +52,13 @@ class Server
 			eRealname
 		};
 
-		enum ClientState 
+		enum ClientState
 		{
 			WAIT_PASS,
 			WAIT_NICK,
 			WAIT_USER,
 			AUTHENTICATED
 		};
-
-		
-
 
         void initSocket(char **argv); // création + bind via getaddrinfo
         void startListening(); // accepte les connexions entrantes
@@ -78,14 +75,7 @@ class Server
 		void setPassword(char *password);
 		const int getClientFdByNickname(std::string nickname);
 		const int getChannelIdByName(std::string &channelName);
-		// Parsing
-		//int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
-		//int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
-		//int parsingUsername(int clientFd, int clientIndex, char buffer[4][48], int *index);
-        //int parsingRealname(int clientFd, int clientIndex, char buffer[4][48], int *index);
-		//void contextSwitch(std::string &msg, ClientContext &ctx, Client &cl, int fd);
-		//int parsingUsername(std::string &msg, int fd, ClientContext &ctx);
-		//int parsingRealname(std::string &msg, int fd, ClientContext &ctx);
+
 		void registerClient(int fd, ClientContext &ctx, Client &cl);
 
 		// CMD
@@ -97,12 +87,13 @@ class Server
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdJoinAnExistingChannel(int fd, Client &cl, int targetId);
+		void cmdkick(int fd, std::istringstream &iss, Client &cl);
 
 		std::string trim(const std::string &s);
 
 		bool isUserAlreadyInChannel(int fd, int targetId);
 		bool isUserInAnyChannel(int fd);
-		
+
 
 };
 
