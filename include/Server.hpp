@@ -22,6 +22,7 @@
 
 #define PENDING_QUEUE_MAXLENGTH 10
 #define MSG_SIZE 512 // a verifier dans le protocole irc ?
+#define ERR_TOOMANYTARGETS 4
 
 //test a réaliser ipv6 et ipv4 normalement ok ?
 

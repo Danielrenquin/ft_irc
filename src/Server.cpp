@@ -523,6 +523,26 @@ const int Server::getClientFdByNickname(std::string nickname)
 // TODO: implémenter l'envois de message dans les cannaux multiples ainsi qu'utilisateur multiple
 void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
+    std::vector<std::string> targets;
+    std::string target;
+    int i = 0;
+    /*while(iss >> target)
+    {
+        if (!(target.find(":") != std::string::npos))
+            targets.push_back(target);
+        if (i > ERR_TOOMANYTARGETS)
+        {
+            cl.sendMessage("ERROR :ERR_TOOMANYTARGETS\r\n");
+            return ;
+        }
+        i++;
+    }*/
+    // Print vector elements
+   /* for (std::string target : targets) 
+    {
+        std::cout << target << "\n";
+    }*/
+    return ;
 	std::string targetUser, userMsg;
 	iss >> targetUser;
 	std::cout << "target user: " << targetUser << std::endl;
@@ -557,7 +577,6 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 		clTarget.sendMessage(userMsg);
 		cl.sendMessage(userMsg);
 	}
-	
 	
 }
 // TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
@@ -647,12 +666,13 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
         return ;
     }
-    if (username.find_first_of(",&#") == std::string::npos 
-        || hostname.find_first_of(",&#") == std::string::npos
-        || servername.find_first_of(",&#") == std::string::npos
-        || realname.find_first_of(",&#") == std::string::npos)
+    if (username.find_first_of(",#&:") != std::string::npos
+        || hostname.find_first_of(",#&:") != std::string::npos
+        || servername.find_first_of(",#&:") != std::string::npos
+        || realname.find_first_of(",#&:") != std::string::npos)
     {
         cl.sendMessage("USER :Unauthorized characters\r\n");
+        //std::cout << "realname: " << realname << std::endl;
         return ;
     }
     
@@ -675,7 +695,7 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         cl.sendMessage("431 * :No nickname given\r\n");
         return ;
     }
-    if (nick.find_first_of(",&#") == std::string::npos)
+    if (nick.find_first_of(" ,#&:") != std::string::npos)
     {
         cl.sendMessage("NICK :Unauthorized characters\r\n");
         return ;
