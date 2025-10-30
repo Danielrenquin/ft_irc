@@ -524,59 +524,74 @@ const int Server::getClientFdByNickname(std::string nickname)
 void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
     std::vector<std::string> targets;
+	std::vector<int> targetsFds;
+	std::string targetUser, userMsg;
     std::string target;
     int i = 0;
-    /*while(iss >> target)
-    {
-        if (!(target.find(":") != std::string::npos))
-            targets.push_back(target);
-        if (i > ERR_TOOMANYTARGETS)
-        {
-            cl.sendMessage("ERROR :ERR_TOOMANYTARGETS\r\n");
-            return ;
-        }
-        i++;
-    }*/
-    // Print vector elements
-   /* for (std::string target : targets) 
-    {
-        std::cout << target << "\n";
-    }*/
-    return ;
-	std::string targetUser, userMsg;
-	iss >> targetUser;
-	std::cout << "target user: " << targetUser << std::endl;
-	if (targetUser.empty())
-	{
-		cl.sendMessage("ERROR :Target User required\r\n");
-		return ;
-	}
-	//std::cout << "privmsg test: " << msg << std::endl;
-	//std::string targetUser = msg.substr(msg.find(' '), msg.find(':'));
-	//std::cout << "privmsg test: " << targetUser << std::endl;
-	iss >> userMsg;
-	if (userMsg[0] == ':')
-		userMsg[0] = '\0';
-	std::cout << "user msg: " << userMsg << std::endl;
-	
-	int targetFd = getClientFdByNickname(targetUser);
-	if (targetFd == 0)
-	{
-		cl.sendMessage("ERROR :Target User not found in the server\r\n");
-		return ;
-	}
-	Client &clTarget = _clients[targetFd];
 
-	if (targetFd > 0) // User existe
+	// Parsing des target users
+	while (std::getline(iss, target, ','))
 	{
-        //std::cout << "USER FOUND: " << std::endl;
-		//std::string userMsg = msg.substr(msg.find(':'), msg.size());
-        //write(targetFd, userMsg.c_str(), userMsg.size());
-        //write(fd, userMsg.c_str(), userMsg.size());
-        std::string senderName = cl.getNickname();
-		clTarget.sendMessage(userMsg);
-		cl.sendMessage(userMsg);
+		// parse le dernier target que getline() trouve qui est le message du user
+		size_t pos = target.find(":");
+		if (pos != std::string::npos)
+		{
+			userMsg = target;
+			if (userMsg[0] == ':')
+				userMsg[0] = '\0';
+			target = target.substr(0, pos);
+		}
+		pos = target.find(" ");
+		if (pos != std::string::npos)
+			target[pos] = '\0';
+		targets.push_back(target);
+
+		if (i > ERR_TOOMANYTARGETS)
+		{
+			cl.sendMessage("ERROR :ERR_TOOMANYTARGETS\r\n");
+			return ;
+		}
+		i++;
 	}
+
+    // Validité des users
+    for (size_t i = 0; i < targets.size(); i++) 
+    {
+		if (targets[i].empty())
+		{
+			cl.sendMessage("ERROR :Target User required\r\n");
+			return ;
+		}
+		targetsFds.push_back(getClientFdByNickname(targets[i]));
+		if (targetsFds[i]  == 0)
+		{
+			cl.sendMessage("ERROR :Target User not found in the server\r\n");
+			return ;
+		}
+        std::cout << targets[i] << "\n";
+    }
+	
+	return ;
+	// Send msg pour chaque user
+	for (size_t i = 0; i < targets.size(); i++)
+	{
+		int &currentTargetFd = targetsFds[i];
+		Client &clTarget = _clients[currentTargetFd];
+	
+		if (currentTargetFd > 0) // User existe
+		{
+			//std::cout << "USER FOUND: " << std::endl;
+			//std::string userMsg = msg.substr(msg.find(':'), msg.size());
+			//write(targetFd, userMsg.c_str(), userMsg.size());
+			//write(fd, userMsg.c_str(), userMsg.size());
+			std::string senderName = cl.getNickname();
+			clTarget.sendMessage(userMsg);
+			cl.sendMessage(userMsg);
+		}
+
+	}
+	
+	std::cout << "user msg: " << userMsg << std::endl;
 	
 }
 // TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
