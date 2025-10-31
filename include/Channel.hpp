@@ -23,6 +23,7 @@ class Channel
 		const int getId() const;
 		const std::set<int>&getUserList() const;
 		const std::set<int>&getOperators() const;
+		bool isOperator(int fd) const;
 
 		void addOperator(int fd);
 		void removeOperator(int fd);

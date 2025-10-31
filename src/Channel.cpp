@@ -63,6 +63,11 @@ const std::set<int>&Channel::getOperators() const
     return (_operators);
 }
 
+bool Channel::isOperator(int fd) const
+{
+    return _operators.find(fd) != _operators.end();
+}
+
 const int Channel::getId() const
 {
 	return (_id);

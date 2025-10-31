@@ -329,26 +329,59 @@ void Server::cmdkick(int fd, std::istringstream &iss, Client &cl)
 
     if(channelName.empty() || targetNick.empty())
     {
-        cl.sendMessage("ERR_NEEDMOREPARAMS");
+        cl.sendMessage("461 KICK :Not enough parameters");
         return;
     }
     if(channelName[0] != '#' && channelName[0] != '$')
     {
-        cl.sendMessage("ERR_BADCHANMASK");
+        cl.sendMessage("476" + channelName + " :Bad Channel Mask");
         return;
     }
-    if(getChannelIdByName(channelName))
+
+    std::string channelNameWithoutHash = channelName.substr(1);
+    int channelId = getChannelIdByName(channelNameWithoutHash);
+    if(channelId == -1)
     {
-        cl.sendMessage("ERR_NOSUCHCHANNEL");
+        cl.sendMessage("403" + channelName + " :No such channel");
+        return;
+    }
+    Channel &channel = _channelList[channelId];
+    if(!isUserAlreadyInChannel(fd, channelId))
+    {
+        cl.sendMessage("442" + channelName + " :you're not on that channel");
+        return;
+    }
+    if(!channel.isOperator(fd))
+    {
+        cl.sendMessage("482" + channelName + "you're not channel operator");
+        return;
+    }
+    int TargetFd = getClientFdByNickname(targetNick);
+    if(TargetFd == 0)
+    {
+        cl.sendMessage("401" + targetNick + " :No such nick/channel");
+        return;
+    }
+    if(!isUserAlreadyInChannel)
+    {
+        cl.sendMessage("441" + targetNick + " " + channelName + "They aren't on that channel");
         return;
     }
     if(!reason.empty() && reason[0] == ' ')
         reason = reason.substr(1);
     if(!reason.empty() && reason[0] == ':')
         reason = reason.substr(1);
-    std::cout << "channelName: " << channelName << std::endl;
-    std::cout << "targetNick: " << targetNick << std::endl;
-    std::cout << "reason: " << reason << std::endl;
+    else if (reason.empty())
+    {
+        reason = cl.getNickname();
+    }
+    std::string kickMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "÷@localhost KICK" +
+        channelName + " " + targetNick + ":" + reason + "\r\n";
+    const std::set<int> &users =  channel.getUserList();
+    for(std::set<int>::const_iterator it = users.begin(); it != users.end(); ++it)
+    {
+        _clients[*it].sendMessage(kickMsg);
+    }
     return;
 }
 
