@@ -2,6 +2,8 @@
 
 #include "Server.hpp"
 
+//retirer l' utilisateur des channel lorsqu'il se deconnect
+
 class Channel
 {
 	private:

@@ -1,7 +1,6 @@
 #include "Server.hpp"
 #include "Channel.hpp"
-
-class Channel;
+#include "CommandHandler.hpp"
 
 // Structure de context d'authentification
 // Permet de savoir l'état actuel d'authentification du client
@@ -15,6 +14,8 @@ struct ClientContext
 
 Server::Server(int port) : _port(port)
 {
+    _commandHandler = new CommandHandler(this);
+    _commandHandler->registerCommands();
     if(port < 1 || port > 65535)
         throw std::invalid_argument("Port must be between 1 and 65535");
 }
@@ -23,6 +24,7 @@ Server::~Server()
 {
     if(_serverSocket != -1)
         close(_serverSocket);
+    delete _commandHandler;
 }
 
 void Server::setPassword(char *password)
@@ -174,6 +176,16 @@ const int Server::getChannelIdByName(std::string &channelName)
 	return (-1);
 }
 
+std::map<int, Channel>& Server::getChannelList()
+{
+    return _channelList;
+}
+
+std::map<int, Client>& Server::getClients()
+{
+    return _clients;
+}
+
 bool Server::isUserInAnyChannel(int fd)
 {
 	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); ++it)
@@ -198,70 +210,13 @@ bool Server::isUserAlreadyInChannel(int fd, int targetId)
 	return (false);
 }
 
-void Server::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
-{
-	Channel &ch = _channelList[targetId];
-
-	if (!isUserAlreadyInChannel(fd, targetId))
-		ch.addUser(fd);
-	else
-		cl.sendMessage("NOTICE : You are already in this channel\r\n");
-
-}
-
-void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
-{
-    static int id = 0;
-    std::string userName = cl.getNickname();
-    std::string channelName, pass;
-	iss >> channelName;
-	std::cout << "channel: " << channelName << std::endl;
-	if (channelName.empty())
-	{
-        cl.sendMessage("ERROR :Channel name required\r\n");
-		return ;
-	}
-
-	// Si le channel existe add le clientFd au set
-	int targetId = getChannelIdByName(channelName);
-    if (targetId != -1)
-    {
-		cmdJoinAnExistingChannel(fd, cl, targetId);
-		Channel &ch = _channelList[targetId];
-		// DEBUG
-		std::cout << "existing channel: " << targetId << std::endl;
-		for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
-		{
-			std::cout << "user set: " << *it << std::endl;
-		}
-        return ;
-    }
-
-	// Si le channel existe ne pas cree un nouvel objet
-    iss >> pass;
-	// Operateur ternaire afin de créer qu'une seule instances de channel
-	Channel newChannel = pass.empty() ? Channel(id, channelName, fd, fd) : Channel(id, channelName, pass, fd, fd);
-
-	std::cout << id << std::endl;
-    Channel &ch = newChannel;
-    	_channelList[id++] = newChannel;
-	ch.addOperator(fd);
-	ch.addUser(fd);
-
-	// DEBUG
-	for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
-	{
-		std::cout << "user set: " << *it << std::endl;
-	}
-
-}
-
 const int Server::getClientFdByNickname(std::string nickname)
 {
 	// Itérer une map
 	for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); it++)
 	{
 		Client &cl = it->second; // Ici it->first correspond a l'id et it->second correspond au Client
+        std::cout << cl.getNickname() << "comparer avec" << nickname << std::endl;
 		if (cl.getNickname() == nickname)
 		{
 			return (cl.getFd());
@@ -271,7 +226,7 @@ const int Server::getClientFdByNickname(std::string nickname)
 }
 
 // TODO: implémenter l'envois de message dans les cannaux
-void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
+/*void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string targetUser, userMsg;
 	iss >> targetUser;
@@ -309,6 +264,7 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 
 
 }
+
 // TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
 void Server::cmdQuit(int fd, Client &cl)
 {
@@ -318,115 +274,7 @@ void Server::cmdQuit(int fd, Client &cl)
     removeClient();
     _clients.erase(fd);
     _contexts.erase(fd);
-}
-
-void Server::cmdkick(int fd, std::istringstream &iss, Client &cl)
-{
-    std::string channelName, targetNick, reason;
-
-    iss >> channelName >> targetNick;
-    std::getline(iss, reason);
-
-    if(channelName.empty() || targetNick.empty())
-    {
-        cl.sendMessage("461 KICK :Not enough parameters");
-        return;
-    }
-    if(channelName[0] != '#' && channelName[0] != '$')
-    {
-        cl.sendMessage("476" + channelName + " :Bad Channel Mask");
-        return;
-    }
-
-    std::string channelNameWithoutHash = channelName.substr(1);
-    int channelId = getChannelIdByName(channelNameWithoutHash);
-    if(channelId == -1)
-    {
-        cl.sendMessage("403" + channelName + " :No such channel");
-        return;
-    }
-    Channel &channel = _channelList[channelId];
-    if(!isUserAlreadyInChannel(fd, channelId))
-    {
-        cl.sendMessage("442" + channelName + " :you're not on that channel");
-        return;
-    }
-    if(!channel.isOperator(fd))
-    {
-        cl.sendMessage("482" + channelName + "you're not channel operator");
-        return;
-    }
-    int TargetFd = getClientFdByNickname(targetNick);
-    if(TargetFd == 0)
-    {
-        cl.sendMessage("401" + targetNick + " :No such nick/channel");
-        return;
-    }
-    if(!isUserAlreadyInChannel)
-    {
-        cl.sendMessage("441" + targetNick + " " + channelName + "They aren't on that channel");
-        return;
-    }
-    if(!reason.empty() && reason[0] == ' ')
-        reason = reason.substr(1);
-    if(!reason.empty() && reason[0] == ':')
-        reason = reason.substr(1);
-    else if (reason.empty())
-    {
-        reason = cl.getNickname();
-    }
-    std::string kickMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "÷@localhost KICK" +
-        channelName + " " + targetNick + ":" + reason + "\r\n";
-    const std::set<int> &users =  channel.getUserList();
-    for(std::set<int>::const_iterator it = users.begin(); it != users.end(); ++it)
-    {
-        _clients[*it].sendMessage(kickMsg);
-    }
-    return;
-}
-
-void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl)
-{
-    // Convertir la commande en majuscules pour éviter les erreurs
-    std::string command = msg.substr(0, msg.find(' '));
-	// ransform() Applique a chaque charactère itérée une fonction et retourn le résultat dans son 3eme argument
-	// Encore une fonction cheaté du c++ :/
-    std::transform(command.begin(), command.end(), command.begin(), ::toupper);
-
-    if (command == "JOIN")
-    {
-        std::cout << "[client: " << fd << "] wants to JOIN a channel" << std::endl;
-        cmdJoin(fd, iss, cl);
-    }
-    else if (command == "PRIVMSG")
-    {
-        cmdPrivMsg(fd, iss, cl);
-    }
-    else if (command == "QUIT")
-    {
-        cmdQuit(fd, cl);
-    }
-    else if (command == "KICK")
-    {
-        cmdkick(fd, iss, cl);
-    }
-    else if (command == "INVITE")
-    {
-        //cmdInvite(fd, iss, cl);
-    }
-    else if (command == "TOPIC")
-    {
-        //cmdTopic(fd, iss, cl);
-    }
-    else if (command == "MODE")
-    {
-        //cmdMode(fd, iss, cl);
-    }
-    else
-    {
-        cl.sendMessage("Unknown command: " + command + "\r\n");
-    }
-}
+}*/
 
 void Server::registerClient(int fd, ClientContext &ctx, Client &cl)
 {
@@ -477,8 +325,15 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
         return;
     }
-
-    cl = Client(username, "", "", "", realname, fd); // A voir si les données ne seront pas écrasé lors de la construction
+    if (!realname.empty() && realname[0] == ' ')
+        realname = realname.substr(1);
+    if (!realname.empty() && realname[0] == ':')
+        realname = realname.substr(1);
+    
+    cl.setUsername(username);
+    cl.setHostname(hostname);
+    cl.setRealname(realname);
+    //cl = Client(username, "", "", "", realname, fd); // A voir si les données ne seront pas écrasé lors de la construction
     ctx.hasUser = true;
 
     if (ctx.hasPass && ctx.hasNick)
@@ -496,8 +351,9 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         cl.sendMessage("431 * :No nickname given\r\n");
         return;
     }
-
-    cl = Client("", nick, "", "", "", fd); // A voir si les données ne seront pas écrasé lors de la construction
+    std::cout << "dans la fonction cmdNick: " << nick << std::endl; 
+    //cl = Client("", nick, "", "", "", fd);  A voir si les données ne seront pas écrasé lors de la construction
+    cl.setNickname(nick);
     ctx.hasNick = true;
 
     if (ctx.hasPass && ctx.hasUser)
@@ -548,7 +404,9 @@ void Server::handleClientData()
     else if (ctx.state != AUTHENTICATED)
        cl.sendMessage("ERROR :You must register first\r\n");
     else
-        isCmd(msg, fd, iss, cl);
+    {
+        _commandHandler->executeCommand(msg, fd, cl);
+    }
 
 	/*if (isUserInAnyChannel(fd))
 	{

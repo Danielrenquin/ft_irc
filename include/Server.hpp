@@ -15,10 +15,10 @@
 #include <fcntl.h>
 #include <map>
 #include <poll.h>
-#include "Client.hpp"
-
 #include <cstring>
 #include <arpa/inet.h>
+
+#include "Client.hpp"
 
 #define PENDING_QUEUE_MAXLENGTH 10
 #define MSG_SIZE 512 // a verifier dans le protocole irc ?
@@ -27,6 +27,7 @@
 
 class Client;
 class Channel;
+class CommandHandler;
 struct ClientContext;
 
 class Server
@@ -40,6 +41,7 @@ class Server
 		std::map<int, ClientContext> _contexts;
 		std::map<int, Channel> _channelList;
         std::vector<pollfd> _pfds;
+		CommandHandler *_commandHandler;
     public:
         Server(int port);
         ~Server();
@@ -75,28 +77,21 @@ class Server
 		void setPassword(char *password);
 		const int getClientFdByNickname(std::string nickname);
 		const int getChannelIdByName(std::string &channelName);
+		std::map<int, Channel>& getChannelList();
+		std::map<int, Client>& getClients();
 
 		void registerClient(int fd, ClientContext &ctx, Client &cl);
 
 		// CMD
-		void isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl);
-		void cmdQuit(int fd, Client &cl);
-		void cmdJoin(int fd, std::istringstream &iss, Client &cl);
-		void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
+		//void cmdQuit(int fd, Client &cl);
+		//void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
 		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
-		void cmdJoinAnExistingChannel(int fd, Client &cl, int targetId);
-		void cmdkick(int fd, std::istringstream &iss, Client &cl);
 
 		std::string trim(const std::string &s);
 
 		bool isUserAlreadyInChannel(int fd, int targetId);
 		bool isUserInAnyChannel(int fd);
 
-
 };
-
-//separer les fonctions pour operateur/client
-//ajouter le passeword
-//inserer le containeur de poll dans un containeur de clients

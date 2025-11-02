@@ -78,6 +78,26 @@ const std::string& Client::getNickname() const
 	return (_nickname); 	
 }
 
+void Client::setUsername(const std::string& username)
+{
+	_username = username;
+}
+
+void Client::setNickname(const std::string& nickname)
+{
+	_nickname = nickname;
+}
+
+void Client::setHostname(const std::string& hostname)
+{
+	_hostname = hostname;
+}
+
+void Client::setRealname(const std::string& realname)
+{
+	_realname = realname;
+}
+
 int Client::getFd() const 
 { 
 	return (_clientFd);

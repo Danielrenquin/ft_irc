@@ -58,21 +58,13 @@ class Client
 		const std::string& getServername() const;
 		const std::string& getRealname() const;
 		const std::string& getNickname() const;
+		void setUsername(const std::string &username);
+		void setNickname(const std::string &nickname);
+		void setHostname(const std::string &hostname);
+		void setRealname(const std::string &realname);
 		int getFd() const;
 
 		void sendMessage(const std::string &msg) const;
 
-
-        //void join();
-        //see_channels(); ???
-
-        /*addclient
-        removeclient
-        msg/n/r*/
 };
 
-
- // Operateur cree un channel
- // Commande join pour client
- // Parsing client pour son instance
- // Commmencer la classe channel
