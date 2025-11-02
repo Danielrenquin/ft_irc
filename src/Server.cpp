@@ -2,15 +2,6 @@
 #include "Channel.hpp"
 #include "CommandHandler.hpp"
 
-// Structure de context d'authentification
-// Permet de savoir l'état actuel d'authentification du client
-struct ClientContext
-{
-    Server::ClientState state;
-    bool hasPass;
-    bool hasNick;
-    bool hasUser;
-};
 
 Server::Server(int port) : _port(port)
 {
@@ -186,6 +177,12 @@ std::map<int, Client>& Server::getClients()
     return _clients;
 }
 
+std::map<int, ClientContext>& Server::getContexts()
+{
+    return _contexts;
+}
+
+
 bool Server::isUserInAnyChannel(int fd)
 {
 	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); ++it)
@@ -224,57 +221,6 @@ const int Server::getClientFdByNickname(std::string nickname)
 	}
 	return (0);
 }
-
-// TODO: implémenter l'envois de message dans les cannaux
-/*void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
-{
-	std::string targetUser, userMsg;
-	iss >> targetUser;
-	std::cout << "target user: " << targetUser << std::endl;
-	if (targetUser.empty())
-	{
-		cl.sendMessage("ERROR :Target User required\r\n");
-		return ;
-	}
-	//std::cout << "privmsg test: " << msg << std::endl;
-	//std::string targetUser = msg.substr(msg.find(' '), msg.find(':'));
-	//std::cout << "privmsg test: " << targetUser << std::endl;
-	iss >> userMsg;
-	if (userMsg[0] == ':')
-		userMsg[0] = '\0';
-	std::cout << "user msg: " << userMsg << std::endl;
-
-	int targetFd = getClientFdByNickname(targetUser);
-	if (targetFd == 0)
-	{
-		cl.sendMessage("ERROR :Target User not found in the server\r\n");
-		return ;
-	}
-	Client &clTarget = _clients[targetFd];
-
-	if (targetFd > 0) // User existe
-	{
-        //std::cout << "USER FOUND: " << std::endl;
-		//std::string userMsg = msg.substr(msg.find(':'), msg.size());
-        //write(targetFd, userMsg.c_str(), userMsg.size());
-        //write(fd, userMsg.c_str(), userMsg.size());
-		clTarget.sendMessage(userMsg);
-		cl.sendMessage(userMsg);
-	}
-
-
-}
-
-// TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
-void Server::cmdQuit(int fd, Client &cl)
-{
-    std::cout << "Client " << fd << " disconnected" << std::endl;
-    cl.sendMessage("[Server]: Goodbye, " + cl.getUsername() + "\r\n");
-    close(fd);
-    removeClient();
-    _clients.erase(fd);
-    _contexts.erase(fd);
-}*/
 
 void Server::registerClient(int fd, ClientContext &ctx, Client &cl)
 {
@@ -333,7 +279,6 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
     cl.setUsername(username);
     cl.setHostname(hostname);
     cl.setRealname(realname);
-    //cl = Client(username, "", "", "", realname, fd); // A voir si les données ne seront pas écrasé lors de la construction
     ctx.hasUser = true;
 
     if (ctx.hasPass && ctx.hasNick)
@@ -352,7 +297,6 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         return;
     }
     std::cout << "dans la fonction cmdNick: " << nick << std::endl; 
-    //cl = Client("", nick, "", "", "", fd);  A voir si les données ne seront pas écrasé lors de la construction
     cl.setNickname(nick);
     ctx.hasNick = true;
 

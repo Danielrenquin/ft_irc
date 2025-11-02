@@ -20,14 +20,14 @@ class CommandHandler
 
         //gestion de channels
         void cmdJoinAnExistingChannel(int fd, Client &cl, int targetId);
-        void cmdJoin(int fd, std::istringstream& iss, Client &cl);
+        void cmdJoin(int fd, std::istringstream &iss, Client &cl);
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
     
         //messagerie
-        void cmdPrivMsg(int fd, std::istringstream& iss, Client &cl);
+        void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
 
         //autre
-        //void cmdQuit(int fd, Client &cl);
+        void cmdQuit(int fd, std::istringstream &iss, Client &cl);
     
     public:
 

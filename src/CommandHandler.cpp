@@ -1,6 +1,7 @@
 #include "CommandHandler.hpp"
 #include "Server.hpp"
 #include "Channel.hpp"
+#include "ErrorHandler.hpp"
 #include <iostream>
 
 /*-------------Debug--------------------*/
@@ -68,8 +69,8 @@ void CommandHandler::registerCommands()
 {
     _commands["JOIN"] = &CommandHandler::cmdJoin;
     _commands["KICK"] = &CommandHandler::cmdkick;
-    //_commands["PRIVMSG"] = &CommandHandler::cmdPrivMsg;
-    //_commands["QUIT"] = &CommandHandler::cmdQuit;
+    _commands["PRIVMSG"] = &CommandHandler::cmdPrivMsg;
+    _commands["QUIT"] = &CommandHandler::cmdQuit;
 }
 
 
@@ -88,7 +89,7 @@ void CommandHandler::executeCommand(const std::string& cmdLine, int fd, Client& 
     }
     else
     {
-        std::cout << "command not find: " << cmd << "..." << std::endl;
+        ErrorHandler::unknownCommand(cl, cmdLine);
     }
 }
 
@@ -104,7 +105,7 @@ void CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
     } 
     else 
     {
-        cl.sendMessage("NOTICE : You are already in this channel\r\n");
+        cl.sendMessage("NOTICE : already in this channel\r\n");
     }
 }
 
@@ -149,6 +150,7 @@ void CommandHandler::cmdJoin(int fd, std::istringstream& iss, Client& cl)
 
 void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
 {
+    std::string cmd = iss.str();
     std::string channelName, targetNick, reason;
     iss >> channelName >> targetNick;
     std::getline(iss, reason);
@@ -159,46 +161,39 @@ void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
 
     if (channelName.empty() || targetNick.empty()) 
     {
-        cl.sendMessage("461 KICK :Not enough parameters\r\n");
+        ErrorHandler::needMoreParams(cl, cmd);
         return;
     }
-
     if (channelName[0] != '#' && channelName[0] != '$') 
     {
-        cl.sendMessage("476 " + channelName + " :Bad Channel Mask\r\n");
+        ErrorHandler::ERR_BADCHANMASK(cl, channelName);
         return;
     }
-
     std::string nameWithoutHash = channelName.substr(1);
     int channelId = _server->getChannelIdByName(nameWithoutHash); // enlever le #
     if (channelId == -1) 
     {
-        cl.sendMessage("403 " + channelName + " :No such channel\r\n");
+        ErrorHandler::noSuchChannel(cl, channelName);
         return;
     }
-
     std::map<int, Channel>& channels = _server->getChannelList();
     Channel &channel = channels[channelId];
-
     if (!_server->isUserAlreadyInChannel(fd, channelId)) 
     {
-        cl.sendMessage("442 " + channelName + " :You're not on that channel\r\n");
+        ErrorHandler::notOnChannel(cl, channelName);
         return;
     }
-
     if (!channel.isOperator(fd)) 
     {
-        cl.sendMessage("482 " + channelName + " :You're not channel operator\r\n");
+        ErrorHandler::chanOPrivsNeeded(cl, channelName);
         return;
     }
-
     int targetFd = _server->getClientFdByNickname(targetNick);
     if (targetFd == 0 || !_server->isUserAlreadyInChannel(targetFd, channelId)) 
     {
-        cl.sendMessage("441 " + targetNick + " " + channelName + " :They aren't on that channel\r\n");
+        ErrorHandler::userNotInChannel(cl, targetNick, channelName);
         return;
     }
-
     if (reason.empty())
         reason = cl.getNickname();
 
@@ -211,14 +206,12 @@ void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
     {
         clients[userFd].sendMessage(kickMsg);
     }
-
     // Retirer l'utilisateur du channel
     channel.removeUser(targetFd);
-
     std::cout << "[DEBUG] " << targetNick << " kicked from " << channelName << std::endl;
 }
 
-//a adapter a la classe
+// TODO: implémenter l'envois de message dans les cannaux
 void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string targetUser, userMsg;
@@ -255,4 +248,20 @@ void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 		clTarget.sendMessage(userMsg);
 		cl.sendMessage(userMsg);
 	}
+}
+
+// TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
+void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
+{
+    std::string quitMsg;
+    iss >> quitMsg;
+    std::cout << "quit message: " << quitMsg << std::endl;
+    std::map<int, Client>& clients = _server->getClients();
+	std::map<int, ClientContext>& contexts = _server->getContexts();
+    std::cout << "Client " << fd << " disconnected" << std::endl;
+    cl.sendMessage("[Server]: Goodbye, " + cl.getUsername() + "\r\n");
+    close(fd);
+    _server->removeClient();
+    clients.erase(fd);
+    contexts.erase(fd);
 }
