@@ -638,7 +638,7 @@ std::vector<Server::WhichTarget> Server::validatePrivMsg(Client &cl, std::vector
 	return (whichTarget);
 }
 
-// TODO: implémenter l'envois de message dans les cannaux multiples ainsi qu'utilisateur multiple
+// vector de struct car id identique non possible dans map<> seulement un id client peut etre identique a un id channel
 void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
     std::vector<std::string> targets;
@@ -663,7 +663,7 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 	whichTarget = validatePrivMsg(cl, targets);
 	if (whichTarget.empty())
 		return ;
-		
+
 	// Send msg pour chaque user
 	sendPrivMsg(cl, targets, whichTarget, userMsg);
 }
