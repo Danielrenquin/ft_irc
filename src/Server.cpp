@@ -104,6 +104,21 @@ void Server::removeClient()
     std::swap(_pfds[_pfdsIndex], _pfds.back());
     _pfds.pop_back();
 }
+
+void Server::printClients() const
+{
+    for (std::map<int, Client>::const_iterator it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        std::cout << "FD: " << it->first 
+				  << " | Nickname: " << it->second.getNickname()
+				  << " | Username: " << it->second.getUsername()
+				  << " | Hostname: " << it->second.getHostname()
+				  << " | Servername: " << it->second.getServername()
+				  << " | Realname: " << it->second.getRealname()
+                  << std::endl;
+    }
+}
+
 /*
 int Server::receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index)
 {
@@ -517,19 +532,15 @@ const int Server::getClientFdByNickname(std::string nickname)
 			return (cl.getFd());
 		}
 	}
-	return (0);
+	return (-1);
 }
 
-// TODO: implémenter l'envois de message dans les cannaux multiples ainsi qu'utilisateur multiple
-void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
+std::vector<std::string> Server::parsePrivMsg(std::istringstream &iss, Client &cl, std::string &userMsg)
 {
-    std::vector<std::string> targets;
-	std::vector<int> targetsFds;
-	std::string targetUser, userMsg;
-    std::string target;
-    int i = 0;
+	std::vector<std::string> targets;
+	std::string target;
+	int i = 0;
 
-	// Parsing des target users
 	while (std::getline(iss, target, ','))
 	{
 		// parse le dernier target que getline() trouve qui est le message du user
@@ -537,63 +548,126 @@ void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 		if (pos != std::string::npos)
 		{
 			userMsg = target;
-			if (userMsg[0] == ':')
-				userMsg[0] = '\0';
 			target = target.substr(0, pos);
+			userMsg = userMsg.substr(pos, userMsg.size() - pos);
+			if (userMsg[0] == ':')
+				userMsg.erase(0, 1);
 		}
-		pos = target.find(" ");
-		if (pos != std::string::npos)
-			target[pos] = '\0';
+
+		while ((pos = target.find(' ')) != std::string::npos) 
+		{
+			target.erase(pos, 1);
+		}
+		
 		targets.push_back(target);
 
 		if (i > ERR_TOOMANYTARGETS)
 		{
-			cl.sendMessage("ERROR :ERR_TOOMANYTARGETS\r\n");
-			return ;
+			cl.sendMessage("ERROR :Too many targets\r\n");
+			// Return un vecteur vide en cas d'erreur
+			return {};
 		}
 		i++;
 	}
+	return (targets);
+}
 
-    // Validité des users
-    for (size_t i = 0; i < targets.size(); i++) 
+void Server::sendPrivMsg(Client &cl, std::vector<std::string> &targets, std::vector<WhichTarget> &whichTarget, std::string &userMsg)
+{
+	// String formaté a la norme RFC
+	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " PRIVMSG ";
+
+    for (size_t i = 0; i < whichTarget.size(); i++)
     {
-		if (targets[i].empty())
+		WhichTarget wt = whichTarget[i];
+        int targetFd = wt.id;
+
+        std::string fullMsg = formattedMsg + targets[i] + " :" + userMsg + "\r\n";
+		
+		if (wt.type == WhichTarget::CHANNEL) 
+		{
+			Channel &targetCh = _channelList[targetFd];
+			// TODO: implémenter SendMessage dans Channel
+			//targetCh.SendMessage(fullMsg);
+		} 
+		else 
+		{
+			Client &targetCl = _clients[targetFd];
+			targetCl.sendMessage(fullMsg);
+		}
+    }
+
+}
+
+std::vector<Server::WhichTarget> Server::validatePrivMsg(Client &cl, std::vector<std::string> &targets)
+{
+	std::vector<WhichTarget> whichTarget;
+
+	for (size_t i = 0; i < targets.size(); i++) 
+	{
+		if (targets[i].empty()) 
 		{
 			cl.sendMessage("ERROR :Target User required\r\n");
-			return ;
-		}
-		targetsFds.push_back(getClientFdByNickname(targets[i]));
-		if (targetsFds[i]  == 0)
-		{
-			cl.sendMessage("ERROR :Target User not found in the server\r\n");
-			return ;
-		}
-        std::cout << targets[i] << "\n";
-    }
-	
-	return ;
-	// Send msg pour chaque user
-	for (size_t i = 0; i < targets.size(); i++)
-	{
-		int &currentTargetFd = targetsFds[i];
-		Client &clTarget = _clients[currentTargetFd];
-	
-		if (currentTargetFd > 0) // User existe
-		{
-			//std::cout << "USER FOUND: " << std::endl;
-			//std::string userMsg = msg.substr(msg.find(':'), msg.size());
-			//write(targetFd, userMsg.c_str(), userMsg.size());
-			//write(fd, userMsg.c_str(), userMsg.size());
-			std::string senderName = cl.getNickname();
-			clTarget.sendMessage(userMsg);
-			cl.sendMessage(userMsg);
+			return {};
 		}
 
+		WhichTarget wt;
+		size_t pos = targets[i].find("#");
+		if (pos != std::string::npos) 
+		{
+			wt.type = WhichTarget::CHANNEL;
+			wt.id = getChannelIdByName(targets[i]);
+			if (wt.id < 0) 
+			{
+				cl.sendMessage("ERROR " + targets[i] + " :No such channel\r\n");
+				return {};
+			}
+		} 
+		else 
+		{
+			wt.type = WhichTarget::USER;
+			wt.id = getClientFdByNickname(targets[i]);
+			if (wt.id < 0) 
+			{
+				cl.sendMessage("401 " + targets[i] + " :No such nick\r\n");
+				return {};
+			}
+		}
+		whichTarget.push_back(wt);
 	}
-	
-	std::cout << "user msg: " << userMsg << std::endl;
-	
+	return (whichTarget);
 }
+
+// TODO: implémenter l'envois de message dans les cannaux multiples ainsi qu'utilisateur multiple
+void Server::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
+{
+    std::vector<std::string> targets;
+	std::vector<int> targetsFds;
+	std::vector<WhichTarget> whichTarget;
+	std::string userMsg;
+    std::string target;
+
+	// Parsing des target users
+	targets = parsePrivMsg(iss, cl, userMsg);
+	if (targets.empty())
+		return ;
+
+	// DEBUG
+	for (size_t i = 0; i < targets.size(); i++) 
+    {
+        std::cout << "'" + targets[i] + "'" << "\n";
+    }
+	printClients();
+
+    // Validité des users
+	whichTarget = validatePrivMsg(cl, targets);
+	if (whichTarget.empty())
+		return ;
+		
+	// Send msg pour chaque user
+	sendPrivMsg(cl, targets, whichTarget, userMsg);
+}
+
 // TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
 void Server::cmdQuit(int fd, Client &cl)
 {
@@ -674,25 +748,28 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
 {
     std::string username, hostname, servername, realname;
     iss >> username >> hostname >> servername;
-    getline(iss, realname); // peut contenir espaces, commence souvent par ':'
+    getline(iss, realname);
 
     if (username.empty()) 
-    {
+	{
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
         return ;
     }
-    if (username.find_first_of(",#&:") != std::string::npos
-        || hostname.find_first_of(",#&:") != std::string::npos
-        || servername.find_first_of(",#&:") != std::string::npos
-        || realname.find_first_of(",#&:") != std::string::npos)
+
+    if (username.find_first_of(",#&:") != std::string::npos ||
+        hostname.find_first_of(",#&:") != std::string::npos ||
+        servername.find_first_of(",#&:") != std::string::npos ||
+        realname.find_first_of(",#&:") != std::string::npos) 
     {
         cl.sendMessage("USER :Unauthorized characters\r\n");
-        //std::cout << "realname: " << realname << std::endl;
         return ;
     }
-    
 
-    cl = Client(username, "", "", "", realname, fd); // A voir si les données ne seront pas écrasé lors de la construction
+    cl.setUsername(username);
+    cl.setHostname(hostname);
+    cl.setServername(servername);
+    cl.setRealname(realname);
+
     ctx.hasUser = true;
 
     if (ctx.hasPass && ctx.hasNick)
@@ -705,19 +782,18 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
     std::string nick;
     iss >> nick;
 
-    if (nick.empty()) 
-    {
+    if (nick.empty())
+	{
         cl.sendMessage("431 * :No nickname given\r\n");
         return ;
     }
     if (nick.find_first_of(" ,#&:") != std::string::npos)
-    {
+	{
         cl.sendMessage("NICK :Unauthorized characters\r\n");
         return ;
     }
-    
 
-    cl = Client("", nick, "", "", "", fd); // A voir si les données ne seront pas écrasé lors de la construction
+    cl.setNickname(nick);
     ctx.hasNick = true;
 
     if (ctx.hasPass && ctx.hasUser)

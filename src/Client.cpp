@@ -83,6 +83,31 @@ int Client::getFd() const
 	return (_clientFd);
 }
 
+void Client::setUsername(const std::string &username)
+{
+	_username = username;
+}
+
+void Client::setNickname(const std::string &nickname)
+{
+	_nickname = nickname;
+}
+
+void Client::setHostname(const std::string &hostname)
+{
+	_hostname = hostname;
+}
+
+void Client::setServername(const std::string &servername)
+{
+	_servername = servername;
+}
+
+void Client::setRealname(const std::string &realname)
+{
+	_realname = realname;
+}
+
 
 
 void Client::setPoll(pollfd *pfd)

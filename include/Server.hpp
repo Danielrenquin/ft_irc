@@ -41,6 +41,16 @@ class Server
 		std::map<int, ClientContext> _contexts;
 		std::map<int, Channel> _channelList;
         std::vector<pollfd> _pfds;
+
+		struct WhichTarget 
+		{
+			enum Type { USER, CHANNEL } type;
+			int id; // fd client ou id channel
+		};
+
+		std::vector<std::string> parsePrivMsg(std::istringstream &iss, Client &cl, std::string &userMsg);
+		std::vector<WhichTarget> validatePrivMsg(Client &cl, std::vector<std::string> &targets);
+		void sendPrivMsg(Client &cl, std::vector<std::string> &targets, std::vector<WhichTarget> &whichTarget, std::string &userMsg);
     public:
         Server(int port);
         ~Server();
@@ -69,6 +79,7 @@ class Server
 
         void addClient(int fd);
         void removeClient();
+		void printClients() const;
         //int login(int clientIndex);
         void handleClientData();
         void handleConnections();

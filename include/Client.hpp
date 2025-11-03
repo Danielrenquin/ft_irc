@@ -51,6 +51,7 @@ class Client
 		Client(const Client &other);
 		Client& operator=(const Client &other);
 
+		// Getter & Setter
 		pollfd *getPoll() const;
 		void setPoll(pollfd *pfd);
 		const std::string& getUsername() const;
@@ -59,6 +60,12 @@ class Client
 		const std::string& getRealname() const;
 		const std::string& getNickname() const;
 		int getFd() const;
+
+		void setUsername(const std::string &username);
+		void setNickname(const std::string &nickname);
+		void setHostname(const std::string &hostname);
+		void setServername(const std::string &servername);
+		void setRealname(const std::string &realname);
 
 		void sendMessage(const std::string &msg) const;
 
