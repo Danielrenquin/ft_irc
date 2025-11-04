@@ -28,6 +28,9 @@ public:
 	void removeOperator(int fd);
 	void addUser(int fd);
 	void removeUser(int fd);
+
+	void sendMessage(const std::string &msg) const;
+	void sendMessageAvoidingSender(const std::string &msg, int senderFd) const;
 };
 
 

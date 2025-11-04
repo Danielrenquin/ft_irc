@@ -439,6 +439,19 @@ const int Server::getChannelIdByName(std::string &channelName)
 	return (-1);
 }
 
+const int Server::getChannelIdByClientFd(int fd)
+{
+	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); it++)
+	{
+		Channel &ch = it->second; // Ici it->first correspond a l'id et it->second correspond au Client
+		const std::set<int> &users = ch.getUserList();
+
+		if (users.find(fd) != users.end())
+			return (ch.getId());
+	}
+	return (-1);	
+}
+
 bool Server::isUserInAnyChannel(int fd)
 {
 	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); ++it)
@@ -462,7 +475,7 @@ bool Server::isUserAlreadyInChannel(int fd, int targetId)
 	}
 	return (false);
 }
-
+// TODO: Implémenter la gestion de password
 void Server::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
 {
 	Channel &ch = _channelList[targetId];
@@ -474,50 +487,96 @@ void Server::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
 
 }
 
+// TODO: Envoyer des messages lorsqu'un nouveau user JOIN le channel
+// modification en cours, fonction non fonctionelle
 void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
 {
     static int id = 0;
     std::string userName = cl.getNickname();
-    std::string channelName, pass;
-	iss >> channelName;
-	std::cout << "channel: " << channelName << std::endl;
-	if (channelName.empty())
+    std::string channel, pass;
+	std::string channelsToken;
+	std::string keysToken;
+
+	iss >> channelsToken;
+	iss >> keysToken;
+
+	// split channels
+	std::vector<std::string> channelList;
+	std::stringstream cstream(channelsToken);
+	std::string chan;
+	while (std::getline(cstream, chan, ','))
+		channelList.push_back(chan);
+
+	// split keys
+	std::vector<std::string> passList;
+	if (!keysToken.empty()) 
 	{
-        cl.sendMessage("ERROR :Channel name required\r\n");
-		return ;
+		std::stringstream kstream(keysToken);
+		std::string key;
+		while (std::getline(kstream, key, ','))
+			passList.push_back(key);
 	}
 
-	// Si le channel existe add le clientFd au set
-	int targetId = getChannelIdByName(channelName);
-    if (targetId != -1)
-    {
-		cmdJoinAnExistingChannel(fd, cl, targetId);
-		Channel &ch = _channelList[targetId];
-		// DEBUG
-		std::cout << "existing channel: " << targetId << std::endl;
-		for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+
+	// Checking loop
+	for (size_t i = 0; i < channelList.size(); i++)
+	{
+		channel = channelList[i];
+		if (channel.empty())
 		{
-			std::cout << "user set: " << *it << std::endl;
+			cl.sendMessage("ERROR :Channel name required\r\n");
+			return ;
 		}
-        return ;
-    }  
+		// Cheking prefixes
+		if (channel[0] != '#' &&
+			channel[0] != '&' &&
+			channel[0] != '!' &&
+			channel[0] != '+')
+		{
+			cl.sendMessage("ERROR :Need a prefix\r\n");
+			return ;	
+		}
+	}
+
+	for (size_t i = 0; i < channelList.size(); i++)
+	{
+		channel = channelList[i];
+		pass = (i < passList.size()) ? passList[i] : "";
+		// Si le channel existe add le clientFd au set
+		int targetId = getChannelIdByName(channel);
+		if (targetId != -1)
+		{
+			cmdJoinAnExistingChannel(fd, cl, targetId);
+			Channel &ch = _channelList[targetId];
+			// DEBUG
+			std::cout << "existing channel: " << targetId << std::endl;
+			for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+			{
+				std::cout << "user set: " << *it << std::endl;
+			}
+		}
+	}
+
 
 	// Si le channel existe ne pas cree un nouvel objet
-    iss >> pass;
-	// Operateur ternaire afin de créer qu'une seule instances de channel
-	Channel newChannel = pass.empty() ? Channel(id, channelName, fd, fd) : Channel(id, channelName, pass, fd, fd);   
-
-	std::cout << id << std::endl;
-    Channel &ch = newChannel;
-    	_channelList[id++] = newChannel;
-	ch.addOperator(fd);
-	ch.addUser(fd);
+    for (size_t i = 0; i < channelList.size(); i++)
+	{
+		channel = channelList[i];
+		pass = passList[i];
+		// Operateur ternaire afin de créer qu'une seule instances de channel
+		Channel newChannel = passList.empty() ? Channel(id, channel, fd, fd) : Channel(id, channel, pass, fd, fd);   
+		Channel &ch = _channelList[id];
+		ch.addOperator(fd);
+		ch.addUser(fd);
+		id++;
+	}
+	
 	
 	// DEBUG
-	for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+	/*for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
 	{
 		std::cout << "user set: " << *it << std::endl;
-	}
+	}*/
     
 }
 
@@ -588,8 +647,8 @@ void Server::sendPrivMsg(Client &cl, std::vector<std::string> &targets, std::vec
 		{
 			Channel &targetCh = _channelList[targetFd];
 			// TODO: implémenter SendMessage dans Channel
-			//targetCh.SendMessage(fullMsg);
-		} 
+			targetCh.sendMessageAvoidingSender(fullMsg, cl.getFd());
+		}
 		else 
 		{
 			Client &targetCl = _clients[targetFd];
@@ -700,7 +759,7 @@ void Server::isCmd(std::string &msg, int fd, std::istringstream &iss, Client &cl
     {
         cmdQuit(fd, cl);
     }
-    else
+    else if (!isUserInAnyChannel(fd))
     {
         cl.sendMessage("Unknown command: " + command + "\r\n");
     }
@@ -734,7 +793,7 @@ void Server::cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client
         // _password défini au lancement du serveur
         cl.sendMessage("ERROR :Invalid password\r\n");
         close(fd);
-        return;
+        return ;
     }
 
     ctx.hasPass = true;
@@ -800,8 +859,6 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         registerClient(fd, ctx, cl);
 }
 
-
-
 void Server::handleClientData()
 {
     int fd = _pfds[_pfdsIndex].fd;
@@ -834,7 +891,15 @@ void Server::handleClientData()
     std::istringstream iss(msg);
     std::string command;
     iss >> command;
-
+	
+	if (isUserInAnyChannel(fd))
+	{
+		int channelId = getChannelIdByClientFd(fd);
+		Channel &ch = _channelList[channelId];
+		std::string formattedString = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " PRIVMSG " + ch.getName() + " :" + msg + "\r\n";
+		//TODO: DEBUGING
+		ch.sendMessageAvoidingSender(formattedString, fd);
+	}
     if (command == "PASS")
         cmdPass(fd, iss, ctx, cl);
     else if (command == "NICK")
@@ -843,14 +908,8 @@ void Server::handleClientData()
         cmdUser(fd, iss, ctx, cl);
     else if (ctx.state != AUTHENTICATED)
        cl.sendMessage("ERROR :You must register first\r\n");
-    else
-        isCmd(msg, fd, iss, cl);
-
-	/*if (isUserInAnyChannel(fd))
-	{
-		//TODO: implémenter une fonction qui enverra les msg du user dans ses channels
-	}*/
-	
+	else
+		isCmd(msg, fd, iss, cl);
 
 }
 
@@ -869,7 +928,7 @@ void Server::handleConnections()
             //Si c' est le socket sever et que revents a pris la valeur du flag POLLIN
             if(_pfds[_pfdsIndex].fd == _serverSocket && (_pfds[_pfdsIndex].revents & POLLIN))
             {
-				 acceptNewClient();
+				acceptNewClient();
             }
             //si un client a envoyer des données
             //ou si un client se deconnect du server

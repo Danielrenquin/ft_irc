@@ -87,3 +87,40 @@ void Channel::removeUser(int fd)
 {
 	_userSet.erase(fd);
 }
+
+void Channel::sendMessage(const std::string &msg) const 
+{
+    for (std::set<int>::iterator itr = _userSet.begin(); itr != _userSet.end(); itr++) 
+    {
+        if (*itr != -1)
+        {
+            std::cout << "client fd (send msg): " << *itr << std::endl;
+            std::string formatted = msg;
+            if (formatted.find("\r\n") == std::string::npos)
+                formatted += "\r\n";
+            ssize_t res = send(*itr, formatted.c_str(), formatted.size(), 0);
+            if (res == -1)
+                herror("send");
+        }
+    }
+}
+
+void Channel::sendMessageAvoidingSender(const std::string &msg, int senderFd) const 
+{
+    for (std::set<int>::iterator itr = _userSet.begin(); itr != _userSet.end(); itr++) 
+    {
+        if (*itr != -1)
+        {
+            std::cout << "client fd (send msg): " << *itr << std::endl;
+            std::string formatted = msg;
+            if (formatted.find("\r\n") == std::string::npos)
+                formatted += "\r\n";
+            if (*itr != senderFd)
+            {
+                ssize_t res = send(*itr, formatted.c_str(), formatted.size(), 0);
+                if (res == -1)
+                    herror("send");
+            }
+        }
+    }
+}

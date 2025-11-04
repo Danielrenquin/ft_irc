@@ -90,6 +90,7 @@ class Server
 		void setPassword(char *password);
 		const int getClientFdByNickname(std::string nickname);
 		const int getChannelIdByName(std::string &channelName);
+		const int getChannelIdByClientFd(int fd);
 		// Parsing
 		//int receiveDataFromUser(int clientFd, int clientIndex, char buffer[4][48], int *index);
 		//int parsingInputs(int clientFd, int clientIndex, char buffer[4][48]);
