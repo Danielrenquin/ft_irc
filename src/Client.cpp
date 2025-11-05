@@ -123,7 +123,7 @@ void Client::sendMessage(const std::string &msg) const
         std::string formatted = msg;
         if (formatted.find("\r\n") == std::string::npos)
             formatted += "\r\n";
-        ssize_t res = send(_clientFd, formatted.c_str(), formatted.size(), 0);
+       ssize_t res = send(_clientFd, formatted.c_str(), formatted.size(), 0);
         if (res == -1)
             herror("send");
     }

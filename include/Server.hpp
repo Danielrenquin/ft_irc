@@ -48,6 +48,8 @@ class Server
 			int id; // fd client ou id channel
 		};
 
+		std::pair<std::vector<std::string>, std::vector<std::string>> fillListCmdJoin(std::istringstream &iss);
+
 		std::vector<std::string> parsePrivMsg(std::istringstream &iss, Client &cl, std::string &userMsg);
 		std::vector<WhichTarget> validatePrivMsg(Client &cl, std::vector<std::string> &targets);
 		void sendPrivMsg(Client &cl, std::vector<std::string> &targets, std::vector<WhichTarget> &whichTarget, std::string &userMsg);
