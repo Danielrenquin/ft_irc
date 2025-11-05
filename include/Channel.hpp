@@ -20,6 +20,7 @@ public:
 
 	// Getters et setters
 	const std::string getName() const;
+	const std::string getPassword() const;
 	const int getId() const;
 	const std::set<int>&getUserList() const;
 	const std::set<int>&getOperators() const;

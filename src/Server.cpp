@@ -224,16 +224,36 @@ bool Server::isUserAlreadyInChannel(int fd, int targetId)
 	}
 	return (false);
 }
-// TODO: Implémenter la gestion de password
-void Server::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
+
+int Server::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password)
 {
 	Channel &ch = _channelList[targetId];
+	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + ch.getName();
 
-	if (!isUserAlreadyInChannel(fd, targetId)) 
+	if (!isUserAlreadyInChannel(fd, targetId))
+	{
+		if (!ch.getPassword().empty())
+		{
+			if (password == ch.getPassword())
+			{
+				ch.sendMessage(formattedMsg);
+				ch.addUser(fd);
+				return (0);
+			}
+			else
+			{
+				cl.sendMessage("ERROR : Incorrect password\r\n");
+				return (-1);
+			}
+		}
+		ch.sendMessage(formattedMsg);
 		ch.addUser(fd);
-	else 
+	}
+	else
+	{
 		cl.sendMessage("NOTICE : You are already in this channel\r\n");
-
+	}
+	return (0);
 }
 
 std::pair<std::vector<std::string>, std::vector<std::string>> Server::fillListCmdJoin(std::istringstream &iss)
@@ -263,7 +283,6 @@ std::pair<std::vector<std::string>, std::vector<std::string>> Server::fillListCm
 	return {channelList, passList};
 }
 
-// TODO: Envoyer des messages lorsqu'un nouveau user JOIN le channel
 void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
 {
     static int id = 0;
@@ -289,7 +308,11 @@ void Server::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         int targetId = getChannelIdByName(channel);
         if (targetId != -1)
         {
-            cmdJoinAnExistingChannel(fd, cl, targetId);
+			std::string password = passList.empty() ? "" : passList[i];
+			if (cmdJoinAnExistingChannel(fd, cl, targetId, password) == -1)
+			{
+				return ;
+			}
             continue ;
         }
 

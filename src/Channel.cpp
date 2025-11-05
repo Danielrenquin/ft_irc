@@ -63,6 +63,11 @@ const std::set<int>&Channel::getOperators() const
     return (_operators);
 }
 
+const std::string Channel::getPassword() const
+{
+    return (_password);
+}
+
 const int Channel::getId() const
 {
 	return (_id);

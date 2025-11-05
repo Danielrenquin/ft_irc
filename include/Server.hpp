@@ -111,7 +111,7 @@ class Server
 		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
-		void cmdJoinAnExistingChannel(int fd, Client &cl, int targetId);
+		int cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password);
 
 		std::string trim(const std::string &s);
 
