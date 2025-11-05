@@ -10,11 +10,11 @@
 #include "set"
 
 template <typename K, typename V>
-void printChannelMap(const std::map<K, V>& channels, const std::string& title = "Channels list") 
+void printChannelMap(const std::map<K, V>& channels, const std::string& title = "Channels list")
 {
     std::cout << "\n=== " << title << " ===" << std::endl;
 
-    if (channels.empty()) 
+    if (channels.empty())
     {
         std::cout << "(empty)" << std::endl;
         std::cout << "======================" << std::endl;
@@ -22,7 +22,7 @@ void printChannelMap(const std::map<K, V>& channels, const std::string& title = 
     }
 
     // Parcours de tous les channels
-    for (typename std::map<K, V>::const_iterator it = channels.begin(); it != channels.end(); ++it) 
+    for (typename std::map<K, V>::const_iterator it = channels.begin(); it != channels.end(); ++it)
     {
         const V& channel = it->second;
 
@@ -31,9 +31,9 @@ void printChannelMap(const std::map<K, V>& channels, const std::string& title = 
         // --- Affichage des opérateurs ---
         const std::set<int>& operators = channel.getOperators();
         std::cout << "  Operators (" << operators.size() << "): ";
-        if (operators.empty()) 
+        if (operators.empty())
             std::cout << "(none)";
-        else 
+        else
         {
             for (std::set<int>::const_iterator opIt = operators.begin(); opIt != operators.end(); ++opIt)
                 std::cout << *opIt << " ";
@@ -43,9 +43,9 @@ void printChannelMap(const std::map<K, V>& channels, const std::string& title = 
         // --- Affichage des utilisateurs ---
         const std::set<int>& users = channel.getUserList();
         std::cout << "  Users (" << users.size() << "): ";
-        if (users.empty()) 
+        if (users.empty())
             std::cout << "(none)";
-        else 
+        else
         {
             for (std::set<int>::const_iterator uIt = users.begin(); uIt != users.end(); ++uIt)
             {
@@ -106,7 +106,7 @@ void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std
 
     if(channelName[0] == '#' || channelName[0] == '$')
         channelName = channelName.substr(1);
-    int channelId = _server->getChannelIdByName(channelName); 
+    int channelId = _server->getChannelIdByName(channelName);
     Channel &channel = channels[channelId];
     std::set<int> userList = channel.getUserList();
 
@@ -122,18 +122,18 @@ void CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
     std::map<int, Channel>& _channelList = _server->getChannelList();
     Channel &ch = _channelList[targetId];
 
-    if (!_server->isUserAlreadyInChannel(fd, targetId)) 
+    if (!_server->isUserAlreadyInChannel(fd, targetId))
     {
         ch.addUser(fd);
         std::cout << "[JOIN] Client " << fd << " a rejoint le channel " << ch.getName() << std::endl;
-    } 
-    else 
+    }
+    else
     {
         cl.sendMessage("NOTICE : already in this channel\r\n");
     }
 }
 
-void CommandHandler::cmdJoin(int fd, std::istringstream& iss, Client& cl) 
+void CommandHandler::cmdJoin(int fd, std::istringstream& iss, Client& cl)
 {
     static int id = 0;
     std::string userName = cl.getNickname();
@@ -141,19 +141,19 @@ void CommandHandler::cmdJoin(int fd, std::istringstream& iss, Client& cl)
     iss >> channelName;
     std::map<int, Channel>& _channelList = _server->getChannelList();
 
-    if (channelName.empty()) 
+    if (channelName.empty())
     {
         cl.sendMessage("ERROR :Channel name required\r\n");
         return;
     }
 
     int targetId = _server->getChannelIdByName(channelName);
-    if (targetId != -1) 
+    if (targetId != -1)
     {
         cmdJoinAnExistingChannel(fd, cl, targetId);
         return;
     }
-    
+
     iss >> pass;
     Channel newChannel;
     if(pass.empty())
@@ -164,7 +164,7 @@ void CommandHandler::cmdJoin(int fd, std::istringstream& iss, Client& cl)
     {
         newChannel = Channel(id, channelName, pass, fd, fd);
     }
-    
+
     _channelList[id] = newChannel;
     Channel &ch = _channelList[id++];
     ch.addOperator(fd);
@@ -187,7 +187,7 @@ std::vector<std::string> &users, std::string &reason)
     std::string chan;
     while (std::getline(sschan, chan, ','))
         channels.push_back(_server->trim(chan));
-    
+
     std::stringstream ssuser(userList);
     std::string user;
     while (std::getline(ssuser, user, ','))
@@ -216,13 +216,13 @@ Client& cl, std::string cmd, int fd)
         ErrorHandler::notOnChannel(cl, channelName);
         return false;
     }
-    if (!channel.isOperator(fd)) 
+    if (!channel.isOperator(fd))
     {
         ErrorHandler::chanOPrivsNeeded(cl, channelName);
         return false;
     }
     int targetFd = _server->getClientFdByNickname(targetNick);
-    if (targetFd == 0 || !_server->isUserAlreadyInChannel(targetFd, channelId)) 
+    if (targetFd == 0 || !_server->isUserAlreadyInChannel(targetFd, channelId))
     {
         ErrorHandler::userNotInChannel(cl, targetNick, channelName);
         return false;
@@ -237,105 +237,225 @@ std::string user)
         reason = cl.getNickname();
 
     std::string kickMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@localhost KICK "
-                        + channel + " " + user + " :" + reason + "\r\n"; 
-    return kickMsg; 
-}
-
-void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
-{
-    std::string cmd = iss.str();
-    std::vector<std::string> Channels;
-    std::vector<std::string> Users;
-    std::string reason;
-    size_t i = 0;
-    size_t j = 0;
-
-    parseKick(iss, Channels, Users, reason);
-    if(Channels.size() == 0 || Users.size() == 0)
-    {
-        ErrorHandler::needMoreParams(cl, cmd);
-        return;
-    }
-    //std::map<int, Client>& clients = _server->getClients();
-    std::map<int, Channel>& channels = _server->getChannelList();
-    while (i < Channels.size() || j < Users.size())
-    {
-        if(checkInKick(Channels[i], Users[j], cl, cmd, fd))
-        {
-            std::string msg = msgKick(reason, cl, Channels[i], Users[j]);
-            BroadcastToChannel(Channels[i], cl, msg);
-            int channelId = _server->getChannelIdByName(Channels[i]); 
-            Channel &channel = channels[channelId];
-            int targetFd = _server->getClientFdByNickname(Users[j]);
-            channel.removeUser(targetFd);
-        }
-        i++;
-        j++;
-    }
+                        + channel + " " + user + " :" + reason + "\r\n";
+    return kickMsg;
 }
 
 /*void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
 {
     std::string cmd = iss.str();
-    std::string channelName, targetNick, reason;
-    iss >> channelName >> targetNick;
-    std::getline(iss, reason);
+    std::vector<std::string> Channels;
+    std::vector<std::string> Users;
+    std::string reason;
 
-    channelName = _server->trim(channelName);
-    targetNick = _server->trim(targetNick);
-    reason = _server->trim(reason);
+    // --- 1. Parsing ---
+    parseKick(iss, Channels, Users, reason);
 
-    if (channelName.empty() || targetNick.empty()) 
+    if (Channels.empty() || Users.empty())
     {
         ErrorHandler::needMoreParams(cl, cmd);
         return;
     }
-    if (channelName[0] != '#' && channelName[0] != '$') 
-    {
-        ErrorHandler::ERR_BADCHANMASK(cl, channelName);
-        return;
-    }
-    std::string nameWithoutHash = channelName.substr(1);
-    int channelId = _server->getChannelIdByName(nameWithoutHash); // enlever le #
-    if (channelId == -1) 
-    {
-        ErrorHandler::noSuchChannel(cl, channelName);
-        return;
-    }
+
     std::map<int, Channel>& channels = _server->getChannelList();
-    Channel &channel = channels[channelId];
-    if (!_server->isUserAlreadyInChannel(fd, channelId)) 
-    {
-        ErrorHandler::notOnChannel(cl, channelName);
-        return;
-    }
-    if (!channel.isOperator(fd)) 
-    {
-        ErrorHandler::chanOPrivsNeeded(cl, channelName);
-        return;
-    }
-    int targetFd = _server->getClientFdByNickname(targetNick);
-    if (targetFd == 0 || !_server->isUserAlreadyInChannel(targetFd, channelId)) 
-    {
-        ErrorHandler::userNotInChannel(cl, targetNick, channelName);
-        return;
-    }
-    if (reason.empty())
-        reason = cl.getNickname();
 
-    std::string kickMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@localhost KICK " +
-                          channelName + " " + targetNick + " :" + reason + "\r\n";
-
-    // Envoi à tous les utilisateurs du channel
-    std::map<int, Client>& clients = _server->getClients();
-    for (int userFd : channel.getUserList()) 
+    // --- 2. RFC 1459 logic ---
+    // Case 1 : 1 channel, multiple users
+    if (Channels.size() == 1 && Users.size() >= 1)
     {
-        clients[userFd].sendMessage(kickMsg);
+        std::string chan = Channels[0];
+        std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
+        int channelId = _server->getChannelIdByName(nameWithoutHash);
+
+        if (channelId == -1)
+        {
+            ErrorHandler::noSuchChannel(cl, chan);
+            return;
+        }
+
+        for (size_t j = 0; j < Users.size(); ++j)
+        {
+            if (checkInKick(chan, Users[j], cl, cmd, fd))
+            {
+                std::string msg = msgKick(reason, cl, chan, Users[j]);
+                BroadcastToChannel(chan, cl, msg);
+
+                int targetFd = _server->getClientFdByNickname(Users[j]);
+                if (targetFd > 0)
+                    channels[channelId].removeUser(targetFd);
+            }
+        }
     }
-    // Retirer l'utilisateur du channel
-    channel.removeUser(targetFd);
-    std::cout << "[DEBUG] " << targetNick << " kicked from " << channelName << std::endl;
+    // Case 2 : multiple channels, 1 user
+    else if (Channels.size() >= 1 && Users.size() == 1)
+    {
+        std::string user = Users[0];
+        for (size_t i = 0; i < Channels.size(); ++i)
+        {
+            std::string chan = Channels[i];
+            std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
+            int channelId = _server->getChannelIdByName(nameWithoutHash);
+
+            if (channelId == -1)
+            {
+                ErrorHandler::noSuchChannel(cl, chan);
+                continue;
+            }
+
+            if (checkInKick(chan, user, cl, cmd, fd))
+            {
+                std::string msg = msgKick(reason, cl, chan, user);
+                BroadcastToChannel(chan, cl, msg);
+
+                int targetFd = _server->getClientFdByNickname(user);
+                if (targetFd > 0)
+                    channels[channelId].removeUser(targetFd);
+            }
+        }
+    }
+    // Case 3 : same number of channels and users
+    else if (Channels.size() == Users.size())
+    {
+        for (size_t i = 0; i < Channels.size(); ++i)
+        {
+            std::string chan = Channels[i];
+            std::string user = Users[i];
+
+            std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
+            int channelId = _server->getChannelIdByName(nameWithoutHash);
+
+            if (channelId == -1)
+            {
+                ErrorHandler::noSuchChannel(cl, chan);
+                continue;
+            }
+
+            if (checkInKick(chan, user, cl, cmd, fd))
+            {
+                std::string msg = msgKick(reason, cl, chan, user);
+                BroadcastToChannel(chan, cl, msg);
+
+                int targetFd = _server->getClientFdByNickname(user);
+                if (targetFd > 0)
+                    channels[channelId].removeUser(targetFd);
+            }
+        }
+    }
+    // Case 4 : invalid argument count
+    else
+    {
+        // RFC 1459 §4.2.8 — behavior undefined → reject command
+        ErrorHandler::needMoreParams(cl, cmd);
+        return;
+    }
 }*/
+
+void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data)
+{
+    std::map<int, Channel>& channelList = _server->getChannelList();
+    std::string chan = data.channels[0];
+    std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
+
+    int channelId = _server->getChannelIdByName(nameWithoutHash);
+    if (channelId == -1)
+    {
+        ErrorHandler::noSuchChannel(cl, chan);
+        return;
+    }
+
+    for (size_t j = 0; j < data.users.size(); ++j)
+    {
+        if (checkInKick(chan, data.users[j], cl, data.cmd, fd))
+        {
+            std::string msg = msgKick(data.reason, cl, chan, data.users[j]);
+            BroadcastToChannel(chan, cl, msg);
+
+            int targetFd = _server->getClientFdByNickname(data.users[j]);
+            if (targetFd > 0)
+                channelList[channelId].removeUser(targetFd);
+        }
+    }
+}
+
+void CommandHandler::kickMultiChannelsOneUser(int fd, Client& cl, kickData& data)
+{
+    std::map<int, Channel>& channelList = _server->getChannelList();
+    std::string user = data.users[0];
+
+    for (size_t i = 0; i < data.channels.size(); ++i)
+    {
+        std::string chan = data.channels[i];
+        std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
+
+        int channelId = _server->getChannelIdByName(nameWithoutHash);
+        if (channelId == -1)
+        {
+            ErrorHandler::noSuchChannel(cl, chan);
+            continue;
+        }
+
+        if (checkInKick(chan, user, cl, data.cmd, fd))
+        {
+            std::string msg = msgKick(data.reason, cl, chan, user);
+            BroadcastToChannel(chan, cl, msg);
+
+            int targetFd = _server->getClientFdByNickname(user);
+            if (targetFd > 0)
+                channelList[channelId].removeUser(targetFd);
+        }
+    }
+}
+
+void CommandHandler::kickChannelsUsersPair(int fd, Client& cl, kickData& data)
+{
+    std::map<int, Channel>& channelList = _server->getChannelList();
+
+    for (size_t i = 0; i < data.channels.size(); ++i)
+    {
+        std::string chan = data.channels[i];
+        std::string user = data.users[i];
+        std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
+
+        int channelId = _server->getChannelIdByName(nameWithoutHash);
+        if (channelId == -1)
+        {
+            ErrorHandler::noSuchChannel(cl, chan);
+            continue;
+        }
+
+        if (checkInKick(chan, user, cl, data.cmd, fd))
+        {
+            std::string msg = msgKick(data.reason, cl, chan, user);
+            BroadcastToChannel(chan, cl, msg);
+
+            int targetFd = _server->getClientFdByNickname(user);
+            if (targetFd > 0)
+                channelList[channelId].removeUser(targetFd);
+        }
+    }
+}
+
+void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
+{
+    kickData data;
+    data.cmd = iss.str();
+    parseKick(iss, data.channels, data.users, data.reason);
+
+    if (data.channels.empty() || data.users.empty())
+    {
+        ErrorHandler::needMoreParams(cl, data.cmd);
+        return;
+    }
+    if (data.channels.size() == 1 && data.users.size() >= 1)
+        kickOneChannelMultiUsers(fd, cl, data);
+    else if (data.channels.size() >= 1 && data.users.size() == 1)
+        kickMultiChannelsOneUser(fd, cl, data);
+    else if (data.channels.size() == data.users.size())
+        kickChannelsUsersPair(fd, cl, data);
+    else
+        ErrorHandler::needMoreParams(cl, data.cmd);
+}
+
 
 // TODO: implémenter l'envois de message dans les cannaux
 void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)

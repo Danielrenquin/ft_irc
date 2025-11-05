@@ -4,16 +4,24 @@
 
 class Server;
 
+typedef struct kickData
+{
+    std::string cmd;
+    std::vector<std::string>channels;
+    std::vector<std::string>users;
+    std::string reason;
+}kickData;
+
 class CommandHandler
 {
     private:
 
-        Server* _server;
+    Server* _server;
 
         typedef void(CommandHandler::*CommandFunc)(int fd, std::istringstream& iss, Client& cl);
         std::map<std::string, CommandFunc> _commands;
 
-        //authentification 
+        //authentification
         //void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		//void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		//void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
@@ -23,22 +31,26 @@ class CommandHandler
 
         //gestion de channels
         void cmdJoinAnExistingChannel(int fd, Client &cl, int targetId);
+
         void cmdJoin(int fd, std::istringstream &iss, Client &cl);
 
+        void kickOneChannelMultiUsers(int fd, Client& cl, kickData& data);
+        void kickMultiChannelsOneUser(int fd, Client& cl, kickData& data);
+        void kickChannelsUsersPair(int fd, Client& cl, kickData& data);
         void parseKick(std::istringstream &iss, std::vector<std::string> &channels,
         std::vector<std::string> &users, std::string &reason);
         bool checkInKick(std::string channelName, std::string targetNick,
         Client& cl, std::string cmd, int fd);
         std::string msgKick(std::string reason, Client &cl, std::string Channel,
-        std::string user);
+            std::string user);
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
-    
-        //messagerie
+
+            //messagerie
         void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
 
         //autre
         void cmdQuit(int fd, std::istringstream &iss, Client &cl);
-    
+
     public:
 
         CommandHandler(Server* server);

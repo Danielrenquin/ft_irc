@@ -275,7 +275,7 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
         realname = realname.substr(1);
     if (!realname.empty() && realname[0] == ':')
         realname = realname.substr(1);
-    
+
     cl.setUsername(username);
     cl.setHostname(hostname);
     cl.setRealname(realname);
@@ -296,7 +296,7 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         cl.sendMessage("431 * :No nickname given\r\n");
         return;
     }
-    std::cout << "dans la fonction cmdNick: " << nick << std::endl; 
+    std::cout << "dans la fonction cmdNick: " << nick << std::endl;
     cl.setNickname(nick);
     ctx.hasNick = true;
 
