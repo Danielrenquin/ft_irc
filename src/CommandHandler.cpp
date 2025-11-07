@@ -456,7 +456,6 @@ void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
         ErrorHandler::needMoreParams(cl, data.cmd);
 }
 
-
 // TODO: implémenter l'envois de message dans les cannaux
 void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
