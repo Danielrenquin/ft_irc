@@ -2,8 +2,6 @@
 
 #include "Server.hpp"
 
-//retirer l' utilisateur des channel lorsqu'il se deconnect
-
 class Channel
 {
 	private:
@@ -23,10 +21,16 @@ class Channel
 
 		// Getters et setters
 		const std::string getName() const;
+		const std::string getPassword() const;
 		const int getId() const;
 		const std::set<int>&getUserList() const;
 		const std::set<int>&getOperators() const;
+		
 		bool isOperator(int fd) const;
+		void addOperator(int fd);
+		void removeOperator(int fd);
+		void addUser(int fd);
+		void removeUser(int fd);
 
 		void addOperator(int fd);
 		void removeOperator(int fd);
@@ -34,4 +38,8 @@ class Channel
 		void removeUser(int fd);
 		void inviteUser(int fd);
 		void removeInvitedUser(int fd);
+		void sendMessage(const std::string &msg) const;
+		void sendMessageAvoidingSender(const std::string &msg, int senderFd) const;
 };
+
+

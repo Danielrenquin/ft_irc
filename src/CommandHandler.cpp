@@ -119,58 +119,109 @@ void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std
     }
 }
 
-void CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId)
+int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password)
 {
-    std::map<int, Channel>& _channelList = _server->getChannelList();
-    Channel &ch = _channelList[targetId];
+    std::map<int, Channel>& channelList = _server->getChannelList();
+    Channel &ch = channelList[targetId];
+	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + ch.getName();
 
     if (!_server->isUserAlreadyInChannel(fd, targetId))
     {
+        if(!ch.getPassword().empty())
+        {
+            if(password == ch.getPassword())
+            {
+                ch.sendMessage(formattedMsg);
+                ch.addUser(fd);
+                return (0);
+            } 
+            else 
+            {
+                ErrorHandler::badChannelKey(cl, ch.getName());
+                return(-1);
+            }
+        }
+        ch.sendMessage(formattedMsg);
         ch.addUser(fd);
-        std::cout << "[JOIN] Client " << fd << " a rejoint le channel " << ch.getName() << std::endl;
     }
     else
     {
-        cl.sendMessage("NOTICE : already in this channel\r\n");
+        ErrorHandler::userOnChannel(cl, cl.getNickname(), ch.getName());
+        return(-1);
     }
+    return(0);
 }
 
-void CommandHandler::cmdJoin(int fd, std::istringstream& iss, Client& cl)
+std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fillListCmdJoin(std::istringstream &iss)
+{
+    std::string channelsToken;
+    std::string keysToken;
+
+    iss >> channelsToken;
+    iss >> keysToken;
+
+    //split channels
+    std::vector<std::string> channelList;
+    std::stringstream cstream(channelsToken);
+    std::string chan;
+    while (std::getline(cstream, chan, ','))
+        channelList.push_back(chan);
+    
+    //split keys
+    std::vector<std::string> passList;
+    if(!keysToken.empty())
+    {
+        std::stringstream kstream(keysToken);
+        std::string key;
+        while (std::getline(kstream, key, ','))
+            passList.push_back(key);
+    }
+    return {channelList, passList};
+}
+
+void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
 {
     static int id = 0;
-    std::string userName = cl.getNickname();
-    std::string channelName, pass;
-    iss >> channelName;
     std::map<int, Channel>& _channelList = _server->getChannelList();
+    std::pair<std::vector<std::string>, std::vector<std::string>> data = fillListCmdJoin(iss);
+    std::vector<std::string> channelList = data.first;
+	std::vector<std::string> passList = data.second;
 
-    if (channelName.empty())
+    for(size_t i = 0; i < channelList.size(); i++)
     {
-        cl.sendMessage("ERROR :Channel name required\r\n");
-        return;
-    }
+        std::string &channel = channelList[i];
+        std::string pass = (i < passList.size()) ? passList[i] : "";
 
-    int targetId = _server->getChannelIdByName(channelName);
-    if (targetId != -1)
-    {
-        cmdJoinAnExistingChannel(fd, cl, targetId);
-        return;
-    }
+        // check prefix
+        if (channel.empty() ||
+        (channel[0] != '#' && channel[0] != '&' &&
+        channel[0] != '!' && channel[0] != '+'))
+        {
+            ErrorHandler::ERR_BADCHANMASK(cl, channel);
+            continue;
+        }
 
-    iss >> pass;
-    Channel newChannel;
-    if(pass.empty())
-    {
-        newChannel = Channel(id, channelName, fd, fd);
+        // check channel exist
+        int targetId = _server->getChannelIdByName(channel);
+        if(targetId != -1)
+        {
+            //a réfléchir en cas de out of range avec la cmd join
+            //std::string password = (i < passList.size()) ? passList[i] : "";
+            std::string password = passList.empty() ? "" : passList[i];
+            if(cmdJoinAnExistingChannel(fd, cl, targetId, password) == -1)
+                return;
+            continue;
+        }
+         // Create channel
+        _channelList[id] = passList.empty()
+            ? Channel(id, channel, fd, fd)
+            : Channel(id, channel, pass, fd, fd);
+        
+        Channel &ch = _channelList[id];
+        ch.addOperator(fd);
+        ch.addUser(fd);
+        id++; 
     }
-    else
-    {
-        newChannel = Channel(id, channelName, pass, fd, fd);
-    }
-
-    _channelList[id] = newChannel;
-    Channel &ch = _channelList[id++];
-    ch.addOperator(fd);
-    ch.addUser(fd);
 }
 
 //crée deux vecteur de string afin de gérer les commandes a argument multiple
@@ -242,115 +293,6 @@ std::string user)
                         + channel + " " + user + " :" + reason + "\r\n";
     return kickMsg;
 }
-
-/*void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
-{
-    std::string cmd = iss.str();
-    std::vector<std::string> Channels;
-    std::vector<std::string> Users;
-    std::string reason;
-
-    // --- 1. Parsing ---
-    parseKick(iss, Channels, Users, reason);
-
-    if (Channels.empty() || Users.empty())
-    {
-        ErrorHandler::needMoreParams(cl, cmd);
-        return;
-    }
-
-    std::map<int, Channel>& channels = _server->getChannelList();
-
-    // --- 2. RFC 1459 logic ---
-    // Case 1 : 1 channel, multiple users
-    if (Channels.size() == 1 && Users.size() >= 1)
-    {
-        std::string chan = Channels[0];
-        std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
-        int channelId = _server->getChannelIdByName(nameWithoutHash);
-
-        if (channelId == -1)
-        {
-            ErrorHandler::noSuchChannel(cl, chan);
-            return;
-        }
-
-        for (size_t j = 0; j < Users.size(); ++j)
-        {
-            if (checkInKick(chan, Users[j], cl, cmd, fd))
-            {
-                std::string msg = msgKick(reason, cl, chan, Users[j]);
-                BroadcastToChannel(chan, cl, msg);
-
-                int targetFd = _server->getClientFdByNickname(Users[j]);
-                if (targetFd > 0)
-                    channels[channelId].removeUser(targetFd);
-            }
-        }
-    }
-    // Case 2 : multiple channels, 1 user
-    else if (Channels.size() >= 1 && Users.size() == 1)
-    {
-        std::string user = Users[0];
-        for (size_t i = 0; i < Channels.size(); ++i)
-        {
-            std::string chan = Channels[i];
-            std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
-            int channelId = _server->getChannelIdByName(nameWithoutHash);
-
-            if (channelId == -1)
-            {
-                ErrorHandler::noSuchChannel(cl, chan);
-                continue;
-            }
-
-            if (checkInKick(chan, user, cl, cmd, fd))
-            {
-                std::string msg = msgKick(reason, cl, chan, user);
-                BroadcastToChannel(chan, cl, msg);
-
-                int targetFd = _server->getClientFdByNickname(user);
-                if (targetFd > 0)
-                    channels[channelId].removeUser(targetFd);
-            }
-        }
-    }
-    // Case 3 : same number of channels and users
-    else if (Channels.size() == Users.size())
-    {
-        for (size_t i = 0; i < Channels.size(); ++i)
-        {
-            std::string chan = Channels[i];
-            std::string user = Users[i];
-
-            std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
-            int channelId = _server->getChannelIdByName(nameWithoutHash);
-
-            if (channelId == -1)
-            {
-                ErrorHandler::noSuchChannel(cl, chan);
-                continue;
-            }
-
-            if (checkInKick(chan, user, cl, cmd, fd))
-            {
-                std::string msg = msgKick(reason, cl, chan, user);
-                BroadcastToChannel(chan, cl, msg);
-
-                int targetFd = _server->getClientFdByNickname(user);
-                if (targetFd > 0)
-                    channels[channelId].removeUser(targetFd);
-            }
-        }
-    }
-    // Case 4 : invalid argument count
-    else
-    {
-        // RFC 1459 §4.2.8 — behavior undefined → reject command
-        ErrorHandler::needMoreParams(cl, cmd);
-        return;
-    }
-}*/
 
 void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data)
 {

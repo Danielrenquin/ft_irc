@@ -30,10 +30,12 @@ class CommandHandler
         void BroadcastToChannel(std::string channelName, Client &cl, std::string msg);
 
         //gestion de channels
-        void cmdJoinAnExistingChannel(int fd, Client &cl, int targetId);
         std::pair<std::vector<std::string>, std::vector<std::string>> fillListCmdInvite(std::istringstream &iss);
         const int checkCmdInvite(std::string chanName, std::string userName, Client &cl);
         void cmdInvite(int fd, std::istringstream &iss, Client &cl);
+        
+        int cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password);
+        std::pair<std::vector<std::string>, std::vector<std::string>> fillListCmdJoin(std::istringstream &iss);
         void cmdJoin(int fd, std::istringstream &iss, Client &cl);
 
         void kickOneChannelMultiUsers(int fd, Client& cl, kickData& data);
