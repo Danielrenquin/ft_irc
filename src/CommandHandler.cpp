@@ -9,6 +9,7 @@
 #include "map"
 #include "set"
 
+
 template <typename K, typename V>
 void printChannelMap(const std::map<K, V>& channels, const std::string& title = "Channels list")
 {
@@ -71,6 +72,7 @@ void CommandHandler::registerCommands()
     _commands["KICK"] = &CommandHandler::cmdkick;
     _commands["PRIVMSG"] = &CommandHandler::cmdPrivMsg;
     _commands["QUIT"] = &CommandHandler::cmdQuit;
+    _commands["INVITE"] = &CommandHandler::cmdInvite;
 }
 
 
@@ -509,4 +511,97 @@ void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
     _server->removeClient();
     clients.erase(fd);
     contexts.erase(fd);
+}
+
+std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fillListCmdInvite(std::istringstream &iss)
+{
+	std::string channelsToken;
+	std::string nameToken;
+
+	iss >> channelsToken;
+	iss >> nameToken;
+
+	// split channels
+	std::vector<std::string> channelList;
+	std::stringstream chanStream(channelsToken);
+	std::string chan;
+	while (std::getline(chanStream, chan, ','))
+		channelList.push_back(chan);
+
+	// split keys
+	std::vector<std::string> nameList;
+	if (!nameToken.empty()) 
+	{
+		std::stringstream nameStream(nameToken);
+		std::string name;
+		while (std::getline(nameStream, name, ','))
+			nameList.push_back(name);
+	}
+	return {channelList, nameList};
+}
+
+const int CommandHandler::checkCmdInvite(std::string chanName, std::string userName, Client &cl)
+{
+    if (userName.empty() || _server->getClientFdByNickname(userName) == -1)
+    {
+        cl.sendMessage("ERROR :User not found\r\n");
+        return (-1);
+    }
+    
+    if (chanName.empty() ||
+        (chanName[0] != '#' && chanName[0] != '&' &&
+        chanName[0] != '!' && chanName[0] != '+'))
+    {
+        cl.sendMessage("ERROR :Need a prefix\r\n");
+        return (-1);
+    }
+    return (0);
+}
+// TODO: More testing
+void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
+{
+	std::string chanName;
+	std::string userName;
+
+	iss >> userName;
+	iss >> chanName;
+
+    if (checkCmdInvite(chanName, userName, cl) == -1)
+        return ;
+
+    // Check channel exists
+    int targetId = _server->getChannelIdByName(chanName);
+    if (targetId != -1)
+    {
+        if (_server->isUserAlreadyInChannel(_server->getClientFdByNickname(userName), targetId) == true)
+        {
+            cl.sendMessage("ERROR :User already in this channel\r\n");
+            return ;
+        }
+        
+        if (_server->isUserAlreadyInChannel(fd, targetId) == true && _server->isUserOperator(fd, targetId) == true)
+        {
+            Channel *ch = _server->getChannelById(targetId);
+            Client *targetCl = _server->getClientByFd(_server->getClientFdByNickname(userName));
+            std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + chanName;
+            targetCl->sendMessage(formattedMsg);
+            ch->inviteUser(_server->getClientFdByNickname(userName));
+        }
+        else
+        {
+            cl.sendMessage("ERROR :You're not an operator\r\n");
+            return ;
+        }
+    }
+    else
+    {
+        cl.sendMessage("ERROR :No such channel\r\n");
+        return ;
+    }
+
+    // DEBUG
+    /*for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+    {
+        std::cout << "user set: " << *it << std::endl;
+    }*/
 }

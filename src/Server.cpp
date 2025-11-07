@@ -167,6 +167,35 @@ const int Server::getChannelIdByName(std::string &channelName)
 	return (-1);
 }
 
+Channel *Server::getChannelById(int channelId)
+{
+	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); it++)
+	{
+		Channel &ch = it->second; // Ici it->first correspond a l'id et it->second correspond au Client
+		std::cout << "current channel name: " << ch.getName() << std::endl;
+		if (ch.getId() == channelId)
+		{
+			std::cout << "ID FOUND" << std::endl;
+			return (&ch);
+		}
+	}
+	return (NULL);
+}
+
+Client *Server::getClientByFd(int fd)
+{
+	for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); it++)
+	{
+		Client &cl = it->second; // Ici it->first correspond a l'id et it->second correspond au Client
+		if (cl.getFd() == fd)
+		{
+			std::cout << "ID FOUND" << std::endl;
+			return (&cl);
+		}
+	}
+	return (NULL);
+}
+
 std::map<int, Channel>& Server::getChannelList()
 {
     return _channelList;
@@ -196,6 +225,27 @@ bool Server::isUserInAnyChannel(int fd)
 	return (false);
 }
 
+bool Server::isUserOperator(int fd, int targetId)
+{
+ 	Channel &ch = _channelList[targetId];
+	for (std::set<int>::iterator it = ch.getOperators().begin(); it != ch.getOperators().end(); ++it)
+	{
+		if (*it == fd)
+			return (true);
+	}
+	return (false);   
+}
+
+bool Server::isAnExistingUser(int fd)
+{
+	for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+	{
+		if (it->first == fd)
+			return (true);
+	}
+	return (false);
+}
+
 bool Server::isUserAlreadyInChannel(int fd, int targetId)
 {
 	Channel &ch = _channelList[targetId];
@@ -219,7 +269,7 @@ const int Server::getClientFdByNickname(std::string nickname)
 			return (cl.getFd());
 		}
 	}
-	return (0);
+	return (-1);
 }
 
 void Server::registerClient(int fd, ClientContext &ctx, Client &cl)

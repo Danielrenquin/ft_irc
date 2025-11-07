@@ -11,6 +11,7 @@ class Channel
 		std::string _name;
 		std::string _password;
 		std::set<int> _operators;
+		std::set<int> _invitedUser;
 		std::set<int> _userSet;
 	public:
 		Channel();
@@ -31,4 +32,6 @@ class Channel
 		void removeOperator(int fd);
 		void addUser(int fd);
 		void removeUser(int fd);
+		void inviteUser(int fd);
+		void removeInvitedUser(int fd);
 };

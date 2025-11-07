@@ -66,8 +66,10 @@ class Server
 
 		// Getter & Setter
 		void setPassword(char *password);
+		Client *getClientByFd(int channelId);
 		const int getClientFdByNickname(std::string nickname);
 		const int getChannelIdByName(std::string &channelName);
+		Channel *getChannelById(int channelId);
 		std::map<int, Channel>& getChannelList();
 		std::map<int, Client>& getClients();
 		std::map<int, ClientContext>& getContexts();
@@ -83,6 +85,8 @@ class Server
 
 		bool isUserAlreadyInChannel(int fd, int targetId);
 		bool isUserInAnyChannel(int fd);
+		bool isUserOperator(int fd, int targetId);
+		bool isAnExistingUser(int fd);
 
 };
 

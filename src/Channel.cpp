@@ -73,6 +73,16 @@ const int Channel::getId() const
 	return (_id);
 }
 
+void Channel::inviteUser(int fd)
+{
+    _invitedUser.insert(fd);
+}
+
+void Channel::removeInvitedUser(int fd)
+{
+    _invitedUser.erase(fd);
+}
+
 void Channel::addOperator(int fd)
 {
 	_operators.insert(fd);
