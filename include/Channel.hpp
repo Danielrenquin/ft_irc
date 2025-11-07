@@ -32,10 +32,6 @@ class Channel
 		void addUser(int fd);
 		void removeUser(int fd);
 
-		void addOperator(int fd);
-		void removeOperator(int fd);
-		void addUser(int fd);
-		void removeUser(int fd);
 		void inviteUser(int fd);
 		void removeInvitedUser(int fd);
 		void sendMessage(const std::string &msg) const;
