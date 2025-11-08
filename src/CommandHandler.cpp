@@ -68,7 +68,7 @@ CommandHandler::CommandHandler(Server* server)
 
 void CommandHandler::registerCommands()
 {
-    _commands["JOIN"] = &CommandHandler::cmdJoin;
+    _commands["JOIN"] = &CommandHandler::cmdJoin; //JOIN #salon avec cette commande le channel s' appel #salon et pas salon
     _commands["KICK"] = &CommandHandler::cmdkick;
     _commands["PRIVMSG"] = &CommandHandler::cmdPrivMsg;
     _commands["QUIT"] = &CommandHandler::cmdQuit;
@@ -401,7 +401,7 @@ void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
 }
 
 // TODO: implémenter l'envois de message dans les cannaux
-void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
+/*void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string targetUser, userMsg;
 	iss >> targetUser;
@@ -437,7 +437,7 @@ void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 		clTarget.sendMessage(userMsg);
 		cl.sendMessage(userMsg);
 	}
-}
+}*/
 
 // TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
 void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
@@ -546,4 +546,124 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
     {
         std::cout << "user set: " << *it << std::endl;
     }*/
+}
+
+std::vector<std::string> CommandHandler::parsePrivMsg(std::istringstream &iss,
+    Client &cl, std::string &userMsg)
+{
+    std::vector<std::string> targets;
+    std::string target;
+    int i = 0;
+
+    while (std::getline(iss, target, ','))
+    {
+        size_t pos = target.find(":");
+        if(pos != std::string::npos)
+        {
+            userMsg = target;
+            target = target.substr(0, pos);
+            userMsg = userMsg.substr(pos, userMsg.size() - pos);
+			if (userMsg[0] == ':')
+			    userMsg.erase(0, 1);
+        }
+        while ((pos = target.find(' ')) != std::string::npos)
+        {
+            target.erase(pos, 1);
+        }
+        targets.push_back(target);
+        if(i > ERR_TOOMANYTARGETS)
+        {
+            ErrorHandler::tooManyTargets(cl, target);
+            return {};
+        }
+        i++;
+    }
+    return(targets);
+}
+
+std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client &cl, std::vector<std::string> &targets)
+{
+   	std::vector<WhichTarget> whichTarget;
+
+	for (size_t i = 0; i < targets.size(); i++) 
+	{
+		if (targets[i].empty()) 
+		{
+			ErrorHandler::noRecipient(cl, cl.getNickname());
+			return {};
+		}
+
+		WhichTarget wt;
+		size_t pos = targets[i].find("#");
+		if (pos != std::string::npos) 
+		{
+			wt.type = WhichTarget::CHANNEL;
+			wt.id = _server->getChannelIdByName(targets[i]);
+			if (wt.id < 0) 
+			{
+				ErrorHandler::noSuchChannel(cl, targets[i]);
+				return {};
+			}
+		} 
+		else 
+		{
+			wt.type = WhichTarget::USER;
+			wt.id = _server->getClientFdByNickname(targets[i]);
+			if (wt.id < 0) 
+			{
+				ErrorHandler::noSuchNick(cl, cl.getNickname());
+				return {};
+			}
+		}
+		whichTarget.push_back(wt);
+	}
+	return (whichTarget); 
+}
+
+
+void CommandHandler::sendPrivMsg(Client &cl, std::vector<std::string> &targets, std::vector<WhichTarget> &whichTarget, std::string &userMsg)
+{
+    std::map<int, Channel>& channelList = _server->getChannelList();
+    std::map<int, Client>& clients = _server-> getClients();
+	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " PRIVMSG ";
+
+    for (size_t i = 0; i < whichTarget.size(); i++)
+    {
+		WhichTarget wt = whichTarget[i];
+        int targetFd = wt.id;
+
+        std::string fullMsg = formattedMsg + targets[i] + " :" + userMsg + "\r\n";
+		
+		if (wt.type == WhichTarget::CHANNEL) 
+		{
+			Channel &targetCh = channelList[targetFd];
+			targetCh.sendMessageAvoidingSender(fullMsg, cl.getFd());
+		}
+		else 
+		{
+			Client &targetCl = clients[targetFd];
+			targetCl.sendMessage(fullMsg);
+		}
+    }
+}
+
+void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
+{
+    std::vector<std::string> targets;
+    std::vector<CommandHandler::WhichTarget> whichTarget;
+    std::string userMsg;
+    std::string target;
+
+    // Parsing des cibles
+    targets = parsePrivMsg(iss, cl, userMsg);
+    if (targets.empty())
+        return;
+
+    // Validation des cibles (users/channels)
+    whichTarget = validatePrivMsg(cl, targets);
+    if (whichTarget.empty())
+        return;
+
+    // Envoi du message aux cibles
+    sendPrivMsg(cl, targets, whichTarget, userMsg);
 }

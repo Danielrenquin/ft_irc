@@ -2,6 +2,8 @@
 
 #include "Client.hpp"
 
+#define ERR_TOOMANYTARGETS 4
+
 class Server;
 
 typedef struct kickData
@@ -33,7 +35,7 @@ class CommandHandler
         std::pair<std::vector<std::string>, std::vector<std::string>> fillListCmdInvite(std::istringstream &iss);
         const int checkCmdInvite(std::string chanName, std::string userName, Client &cl);
         void cmdInvite(int fd, std::istringstream &iss, Client &cl);
-        
+
         int cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password);
         std::pair<std::vector<std::string>, std::vector<std::string>> fillListCmdJoin(std::istringstream &iss);
         void cmdJoin(int fd, std::istringstream &iss, Client &cl);
@@ -49,7 +51,18 @@ class CommandHandler
             std::string user);
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
 
-            //messagerie
+        //messagerie
+        struct WhichTarget 
+		{
+			enum Type { USER, CHANNEL } type;
+			int id; // fd client ou id channel
+		};
+        std::vector<std::string> parsePrivMsg(std::istringstream &iss, 
+            Client &cl, std::string &userMsg);
+		std::vector<WhichTarget> validatePrivMsg(Client &cl, 
+            std::vector<std::string> &targets);
+		void sendPrivMsg(Client &cl, std::vector<std::string> &targets, 
+            std::vector<WhichTarget> &whichTarget, std::string &userMsg);
         void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
 
         //autre
