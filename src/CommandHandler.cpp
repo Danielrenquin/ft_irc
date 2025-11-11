@@ -73,6 +73,7 @@ void CommandHandler::registerCommands()
     _commands["PRIVMSG"] = &CommandHandler::cmdPrivMsg;
     _commands["QUIT"] = &CommandHandler::cmdQuit;
     _commands["INVITE"] = &CommandHandler::cmdInvite;
+    _commands["TOPIC"] = &CommandHandler::cmdTopic;
 }
 
 
@@ -657,13 +658,78 @@ void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
     // Parsing des cibles
     targets = parsePrivMsg(iss, cl, userMsg);
     if (targets.empty())
-        return;
+        return ;
 
     // Validation des cibles (users/channels)
     whichTarget = validatePrivMsg(cl, targets);
     if (whichTarget.empty())
-        return;
+        return ;
 
     // Envoi du message aux cibles
     sendPrivMsg(cl, targets, whichTarget, userMsg);
+}
+
+void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
+{
+    std::string channelTarget;
+    std::string topic;
+    
+    iss >> channelTarget;
+    if (channelTarget.empty())
+    {
+        cl.sendMessage("461 TOPIC :Not enough parameters");
+        return ;
+    }
+
+    // Check si le channel target est un channel valide
+    int chanId = _server->getChannelIdByName(channelTarget);
+    if (chanId < 0) 
+    {
+        cl.sendMessage("403 " + channelTarget + " :No such channel");
+        return ;
+    }
+
+
+    std::getline(iss, topic);
+    if (!topic.empty() && topic[0] == ' ')
+        topic.erase(0, 1);
+
+    Channel *ch = _server->getChannelById(chanId);
+    if (ch == NULL)
+    {
+        cl.sendMessage("403 " + channelTarget + " :No such channel");
+        return ;
+    }
+    
+    if (topic.empty() && _server->isUserAlreadyInChannel(fd, chanId))
+    {
+        // See topic
+        std::string formattedMsg = ":server 332 " + cl.getNickname() + " " + channelTarget + " :" + ch->getTopic();
+        cl.sendMessage(formattedMsg);
+        return ;
+    }
+    else if (topic.empty())
+    {
+        cl.sendMessage("442 " + channelTarget + ":You're not on that channel");
+        return ;
+    }
+    
+
+    std::set<int> channelModes = ch->getModes();
+    if (channelModes.find('t') != channelModes.end())
+    {
+        if (!_server->isUserOperator(fd, ch->getId()))
+        {
+            cl.sendMessage("482 " + channelTarget + " :You're not channel operator");
+            return ;
+        }
+    }
+    
+    if (!topic.empty() && topic[0] == ':')
+        topic.erase(0, 1);
+    
+    ch->setTopic(topic);
+    std::string msg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " TOPIC " + channelTarget + " :" + topic;
+
+    ch->sendMessage(msg);
 }

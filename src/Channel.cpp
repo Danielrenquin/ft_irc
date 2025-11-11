@@ -73,6 +73,31 @@ const int Channel::getId() const
 	return (_id);
 }
 
+const std::set<int>& Channel::getModes() const
+{
+    return (_modes);
+}
+
+const std::string Channel::getTopic() const
+{
+    return (_topic);
+}
+
+void Channel::setTopic(std::string topic)
+{
+    _topic = topic;
+}
+
+void Channel::addMode(int mode)
+{
+    _modes.insert(mode);
+}
+
+void Channel::removeMode(int mode)
+{
+    _modes.erase(mode);
+}
+
 void Channel::inviteUser(int fd)
 {
     _invitedUser.insert(fd);

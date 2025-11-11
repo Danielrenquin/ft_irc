@@ -50,6 +50,7 @@ class CommandHandler
         std::string msgKick(std::string reason, Client &cl, std::string Channel,
             std::string user);
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
+        void cmdTopic(int fd, std::istringstream &iss, Client &cl);
 
         //messagerie
         struct WhichTarget 
