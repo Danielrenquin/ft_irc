@@ -50,6 +50,8 @@ class CommandHandler
         std::string msgKick(std::string reason, Client &cl, std::string Channel,
             std::string user);
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
+        int cmdTopicParsingTopicSubjet(int fd, int chanId, Client &cl, Channel *ch, std::string &topic, std::string &channelTarget);
+        int cmdTopicParsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget);
         void cmdTopic(int fd, std::istringstream &iss, Client &cl);
 
         //messagerie
