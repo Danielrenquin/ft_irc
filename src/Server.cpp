@@ -92,10 +92,24 @@ void Server::addClient(int fd)
     _pfds.push_back(pfd);
 }
 
-void Server::removeClient()
+/*void Server::removeClient()
 {
     std::swap(_pfds[_pfdsIndex], _pfds.back());
     _pfds.pop_back();
+}*/
+
+void Server::removeClient(int fd)
+{
+    for (std::vector<pollfd>::iterator it = _pfds.begin(); it != _pfds.end(); ++it)
+    {
+        if (it->fd == fd)
+        {
+            _pfds.erase(it);
+            break;
+        }
+    }
+    _clients.erase(fd);
+    _contexts.erase(fd);
 }
 
 // Permet de parser le buffer
@@ -233,7 +247,7 @@ bool Server::isUserOperator(int fd, int targetId)
 		if (*it == fd)
 			return (true);
 	}
-	return (false);   
+	return (false);
 }
 
 bool Server::isAnExistingUser(int fd)
@@ -320,7 +334,7 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
     {
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
         return;
-    }
+    }std::cout << "removefromchannels" << std::endl;
     if (!realname.empty() && realname[0] == ' ')
         realname = realname.substr(1);
     if (!realname.empty() && realname[0] == ':')
@@ -369,9 +383,9 @@ void Server::handleClientData()
             std::cout << "Client " << fd << " disconnected" << std::endl;
 
         close(fd);
-        removeClient();
-        _clients.erase(fd);
-        _contexts.erase(fd);
+        removeClient(fd);
+        //_clients.erase(fd);
+        //_contexts.erase(fd);
         return ;
     }
 

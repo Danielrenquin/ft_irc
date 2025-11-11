@@ -134,8 +134,8 @@ int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, s
                 ch.sendMessage(formattedMsg);
                 ch.addUser(fd);
                 return (0);
-            } 
-            else 
+            }
+            else
             {
                 ErrorHandler::badChannelKey(cl, ch.getName());
                 return(-1);
@@ -166,7 +166,7 @@ std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fi
     std::string chan;
     while (std::getline(cstream, chan, ','))
         channelList.push_back(chan);
-    
+
     //split keys
     std::vector<std::string> passList;
     if(!keysToken.empty())
@@ -216,11 +216,11 @@ void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         _channelList[id] = passList.empty()
             ? Channel(id, channel, fd, fd)
             : Channel(id, channel, pass, fd, fd);
-        
+
         Channel &ch = _channelList[id];
         ch.addOperator(fd);
         ch.addUser(fd);
-        id++; 
+        id++;
     }
 }
 
@@ -400,64 +400,9 @@ void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
         ErrorHandler::needMoreParams(cl, data.cmd);
 }
 
-// TODO: implémenter l'envois de message dans les cannaux
-/*void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
-{
-	std::string targetUser, userMsg;
-	iss >> targetUser;
-	std::cout << "target user: " << targetUser << std::endl;
-	if (targetUser.empty())
-	{
-		cl.sendMessage("ERROR :Target User required\r\n");
-		return ;
-	}
-	//std::cout << "privmsg test: " << msg << std::endl;
-	//std::string targetUser = msg.substr(msg.find(' '), msg.find(':'));
-	//std::cout << "privmsg test: " << targetUser << std::endl;
-	iss >> userMsg;
-	if (userMsg[0] == ':')
-		userMsg[0] = '\0';
-	std::cout << "user msg: " << userMsg << std::endl;
-
-	int targetFd = _server->getClientFdByNickname(targetUser);
-	if (targetFd == 0)
-	{
-		cl.sendMessage("ERROR :Target User not found in the server\r\n");
-		return ;
-	}
-    std::map<int, Client> clients = _server->getClients();
-	Client &clTarget = clients[targetFd];
-
-	if (targetFd > 0) // User existe
-	{
-        //std::cout << "USER FOUND: " << std::endl;
-		//std::string userMsg = msg.substr(msg.find(':'), msg.size());
-        //write(targetFd, userMsg.c_str(), userMsg.size());
-        //write(fd, userMsg.c_str(), userMsg.size());
-		clTarget.sendMessage(userMsg);
-		cl.sendMessage(userMsg);
-	}
-}*/
-
-// TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
-void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
-{
-    std::string quitMsg;
-    iss >> quitMsg;
-    std::cout << "quit message: " << quitMsg << std::endl;
-    std::map<int, Client>& clients = _server->getClients();
-	std::map<int, ClientContext>& contexts = _server->getContexts();
-    std::cout << "Client " << fd << " disconnected" << std::endl;
-    cl.sendMessage("[Server]: Goodbye, " + cl.getUsername() + "\r\n");
-    close(fd);
-    _server->removeClient();
-    clients.erase(fd);
-    contexts.erase(fd);
-}
-
 std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fillListCmdInvite(std::istringstream &iss)
 {
-	std::string channelsToken;
+    std::string channelsToken;
 	std::string nameToken;
 
 	iss >> channelsToken;
@@ -468,16 +413,16 @@ std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fi
 	std::stringstream chanStream(channelsToken);
 	std::string chan;
 	while (std::getline(chanStream, chan, ','))
-		channelList.push_back(chan);
+    channelList.push_back(chan);
 
 	// split keys
 	std::vector<std::string> nameList;
-	if (!nameToken.empty()) 
+	if (!nameToken.empty())
 	{
 		std::stringstream nameStream(nameToken);
 		std::string name;
 		while (std::getline(nameStream, name, ','))
-			nameList.push_back(name);
+        nameList.push_back(name);
 	}
 	return {channelList, nameList};
 }
@@ -489,11 +434,11 @@ const int CommandHandler::checkCmdInvite(std::string chanName, std::string userN
         cl.sendMessage("ERROR :User not found\r\n");
         return (-1);
     }
-    
+
     if (chanName.empty() ||
-        (chanName[0] != '#' && chanName[0] != '&' &&
+    (chanName[0] != '#' && chanName[0] != '&' &&
         chanName[0] != '!' && chanName[0] != '+'))
-    {
+        {
         cl.sendMessage("ERROR :Need a prefix\r\n");
         return (-1);
     }
@@ -502,25 +447,23 @@ const int CommandHandler::checkCmdInvite(std::string chanName, std::string userN
 // TODO: More testing
 void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
 {
-	std::string chanName;
+    std::string chanName;
 	std::string userName;
 
 	iss >> userName;
 	iss >> chanName;
 
     if (checkCmdInvite(chanName, userName, cl) == -1)
-        return ;
-
-    // Check channel exists
-    int targetId = _server->getChannelIdByName(chanName);
-    if (targetId != -1)
     {
-        if (_server->isUserAlreadyInChannel(_server->getClientFdByNickname(userName), targetId) == true)
+
+        // Check channel exists
+        int targetId = _server->getChannelIdByName(chanName);
+        if (targetId != -1)
         {
-            cl.sendMessage("ERROR :User already in this channel\r\n");
+            if (_server->isUserAlreadyInChannel(_server->getClientFdByNickname(userName), targetId) == true)
+                cl.sendMessage("ERROR :User already in this channel\r\n");
             return ;
         }
-        
         if (_server->isUserAlreadyInChannel(fd, targetId) == true && _server->isUserOperator(fd, targetId) == true)
         {
             Channel *ch = _server->getChannelById(targetId);
@@ -540,84 +483,78 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
         cl.sendMessage("ERROR :No such channel\r\n");
         return ;
     }
-
-    // DEBUG
-    /*for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
-    {
-        std::cout << "user set: " << *it << std::endl;
-    }*/
 }
 
 std::vector<std::string> CommandHandler::parsePrivMsg(std::istringstream &iss,
     Client &cl, std::string &userMsg)
-{
-    std::vector<std::string> targets;
-    std::string target;
-    int i = 0;
-
-    while (std::getline(iss, target, ','))
     {
-        size_t pos = target.find(":");
-        if(pos != std::string::npos)
+        std::vector<std::string> targets;
+        std::string target;
+        int i = 0;
+
+        while (std::getline(iss, target, ','))
         {
-            userMsg = target;
-            target = target.substr(0, pos);
-            userMsg = userMsg.substr(pos, userMsg.size() - pos);
-			if (userMsg[0] == ':')
+            size_t pos = target.find(":");
+            if(pos != std::string::npos)
+            {
+                userMsg = target;
+                target = target.substr(0, pos);
+                userMsg = userMsg.substr(pos, userMsg.size() - pos);
+                if (userMsg[0] == ':')
 			    userMsg.erase(0, 1);
+            }
+            while ((pos = target.find(' ')) != std::string::npos)
+            {
+                target.erase(pos, 1);
+            }
+            targets.push_back(target);
+            if(i > ERR_TOOMANYTARGETS)
+            {
+                ErrorHandler::tooManyTargets(cl, target);
+                return {};
+            }
+            i++;
         }
-        while ((pos = target.find(' ')) != std::string::npos)
-        {
-            target.erase(pos, 1);
-        }
-        targets.push_back(target);
-        if(i > ERR_TOOMANYTARGETS)
-        {
-            ErrorHandler::tooManyTargets(cl, target);
-            return {};
-        }
-        i++;
+        return(targets);
     }
-    return(targets);
-}
 
-std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client &cl, std::vector<std::string> &targets)
-{
-   	std::vector<WhichTarget> whichTarget;
+    std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client &cl, std::vector<std::string> &targets)
+    {
+        std::vector<WhichTarget> whichTarget;
 
-	for (size_t i = 0; i < targets.size(); i++) 
-	{
-		if (targets[i].empty()) 
-		{
-			ErrorHandler::noRecipient(cl, cl.getNickname());
-			return {};
+        for (size_t i = 0; i < targets.size(); i++)
+        {
+            if (targets[i].empty())
+            {
+                ErrorHandler::noRecipient(cl, cl.getNickname());
+                return {};
 		}
 
 		WhichTarget wt;
 		size_t pos = targets[i].find("#");
-		if (pos != std::string::npos) 
+		if (pos != std::string::npos)
 		{
-			wt.type = WhichTarget::CHANNEL;
+            wt.type = WhichTarget::CHANNEL;
 			wt.id = _server->getChannelIdByName(targets[i]);
-			if (wt.id < 0) 
+			if (wt.id < 0)
 			{
-				ErrorHandler::noSuchChannel(cl, targets[i]);
+                ErrorHandler::noSuchChannel(cl, targets[i]);
 				return {};
 			}
-		} 
-		else 
+		}
+		else
 		{
-			wt.type = WhichTarget::USER;
+            wt.type = WhichTarget::USER;
 			wt.id = _server->getClientFdByNickname(targets[i]);
-			if (wt.id < 0) 
+			if (wt.id < 0)
 			{
-				ErrorHandler::noSuchNick(cl, cl.getNickname());
+                ErrorHandler::noSuchNick(cl, cl.getNickname());
 				return {};
 			}
 		}
 		whichTarget.push_back(wt);
 	}
-	return (whichTarget); 
+	return (whichTarget);
 }
 
 
@@ -629,19 +566,19 @@ void CommandHandler::sendPrivMsg(Client &cl, std::vector<std::string> &targets, 
 
     for (size_t i = 0; i < whichTarget.size(); i++)
     {
-		WhichTarget wt = whichTarget[i];
+        WhichTarget wt = whichTarget[i];
         int targetFd = wt.id;
 
         std::string fullMsg = formattedMsg + targets[i] + " :" + userMsg + "\r\n";
-		
-		if (wt.type == WhichTarget::CHANNEL) 
+
+		if (wt.type == WhichTarget::CHANNEL)
 		{
-			Channel &targetCh = channelList[targetFd];
+            Channel &targetCh = channelList[targetFd];
 			targetCh.sendMessageAvoidingSender(fullMsg, cl.getFd());
 		}
-		else 
+		else
 		{
-			Client &targetCl = clients[targetFd];
+            Client &targetCl = clients[targetFd];
 			targetCl.sendMessage(fullMsg);
 		}
     }
@@ -657,13 +594,87 @@ void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
     // Parsing des cibles
     targets = parsePrivMsg(iss, cl, userMsg);
     if (targets.empty())
-        return;
+    return;
 
     // Validation des cibles (users/channels)
     whichTarget = validatePrivMsg(cl, targets);
     if (whichTarget.empty())
-        return;
+    return;
 
     // Envoi du message aux cibles
     sendPrivMsg(cl, targets, whichTarget, userMsg);
 }
+
+std::string CommandHandler::parsequit(std::istringstream &iss, Client &cl)
+{
+    std::string quitMsg;
+    std::getline(iss, quitMsg);
+
+    if(!quitMsg.empty() && quitMsg[0] == ' ')
+    quitMsg.erase(0, 1);
+    if(!quitMsg.empty() && quitMsg[0] == ':')
+    quitMsg.erase(0, 1);
+    if(quitMsg.empty())
+    quitMsg = "Client disconnected";
+
+    std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() +
+    "@" + cl.getHostname() + " QUIT :" + quitMsg + "\r\n";
+
+    return formattedMsg;
+}
+
+void CommandHandler::removeFromChannels(int fd, Client &cl, std::string quitMsg)
+{
+    std::map<int, Channel>& ChannelList = _server->getChannelList();
+    std::set<int> Users;
+    std::set<int> Operator;
+    int flag = 0;
+
+    for(std::map<int, Channel>::iterator it = ChannelList.begin(); it != ChannelList.end(); ++it)
+    {
+        Users = it->second.getUserList();
+        if (Users.find(fd) != Users.end())
+        {
+            it->second.sendMessageAvoidingSender(quitMsg, fd);
+            it->second.removeUser(fd);
+            Operator = it->second.getOperators();
+            if(Operator.find(fd) != Operator.end())
+            {
+                it->second.removeOperator(fd);
+                //redefinir un nouvelle opérateur si plus d' opérateurs
+            }
+        }
+        if(it->second.getUserList().empty() && it->second.getOperators().empty())
+        {
+            ChannelList.erase(it);
+            flag = 1;
+            break ;
+        }
+    }
+    if (flag == 1)
+        removeFromChannels(fd, cl, quitMsg);
+}
+
+void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
+{
+    std::string quitMsg;
+    quitMsg = parsequit(iss, cl);
+    removeFromChannels(fd, cl, quitMsg);
+    _server->removeClient(fd);
+}
+
+// TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
+/*void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
+{
+    std::string quitMsg;
+    iss >> quitMsg;
+    std::cout << "quit message: " << quitMsg << std::endl;
+    std::map<int, Client>& clients = _server->getClients();
+    std::map<int, ClientContext>& contexts = _server->getContexts();
+    std::cout << "Client " << fd << " disconnected" << std::endl;
+    cl.sendMessage("[Server]: Goodbye, " + cl.getUsername() + "\r\n");
+    close(fd);
+    _server->removeClient();
+    clients.erase(fd);
+    contexts.erase(fd);
+}*/

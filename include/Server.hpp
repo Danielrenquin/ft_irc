@@ -58,7 +58,7 @@ class Server
         void startListening(); // accepte les connexions entrantes
 
         void addClient(int fd);
-        void removeClient();
+        void removeClient(int fd);
         void handleClientData();
         void handleConnections();
 		void acceptNewClient();

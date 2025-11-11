@@ -52,20 +52,22 @@ class CommandHandler
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
 
         //messagerie
-        struct WhichTarget 
+        struct WhichTarget
 		{
 			enum Type { USER, CHANNEL } type;
 			int id; // fd client ou id channel
 		};
-        std::vector<std::string> parsePrivMsg(std::istringstream &iss, 
+        std::vector<std::string> parsePrivMsg(std::istringstream &iss,
             Client &cl, std::string &userMsg);
-		std::vector<WhichTarget> validatePrivMsg(Client &cl, 
+		std::vector<WhichTarget> validatePrivMsg(Client &cl,
             std::vector<std::string> &targets);
-		void sendPrivMsg(Client &cl, std::vector<std::string> &targets, 
+		void sendPrivMsg(Client &cl, std::vector<std::string> &targets,
             std::vector<WhichTarget> &whichTarget, std::string &userMsg);
         void cmdPrivMsg(int fd, std::istringstream &iss, Client &cl);
 
-        //autre
+        //quit
+        std::string parsequit(std::istringstream &iss, Client &cl);
+        void removeFromChannels(int fd, Client &cl, std::string quitMsg);
         void cmdQuit(int fd, std::istringstream &iss, Client &cl);
 
     public:
