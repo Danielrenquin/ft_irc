@@ -2,7 +2,7 @@
 
 #include "Client.hpp"
 
-#define ERR_TOOMANYTARGETS 4
+#define MAX_TARGET 4
 
 class Server;
 

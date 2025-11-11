@@ -24,14 +24,14 @@ SRCS		= $(SRC_DIR)/main.cpp \
 			  $(SRC_DIR)/Server.cpp \
 			  $(SRC_DIR)/Client.cpp \
 			  $(SRC_DIR)/Channel.cpp \
-			  $(SRC_DIR)/ErrorHandler.cpp\
+			  $(SRC_DIR)/ErrorHandler.cpp \
 			  $(SRC_DIR)/CommandHandler.cpp \
 			  $(SRC_DIR)/commands/auth.cpp \
 			  $(SRC_DIR)/commands/channel.cpp \
 			  $(SRC_DIR)/commands/message.cpp \
 			  $(SRC_DIR)/commands/operator.cpp \
 			  $(SRC_DIR)/utils/parsing.cpp \
-			  $(SRC_DIR)/utils/validation.cpp
+			  $(SRC_DIR)/utils/validation.cpp \
 
 # **************************************************************************** #
 #                                 OBJECT FILES                                 #
@@ -49,6 +49,7 @@ HEADERS		= $(INC_DIR)/Server.hpp \
 			  $(INC_DIR)/Client.hpp \
 			  $(INC_DIR)/Channel.hpp \
 			  $(INC_DIR)/CommandHandler.hpp \
+			  $(INC_DIR)/ErrorHandler.hpp \
 			  $(INC_DIR)/utils.hpp
 
 # **************************************************************************** #

@@ -254,34 +254,34 @@ Client& cl, std::string cmd, int fd)
     if(channelName[0] != '#' && channelName[0] != '$')
     {
         ErrorHandler::ERR_BADCHANMASK(cl, channelName);
-        return false;
+        return (false);
     }
     std::string nameWithoutHash = channelName.substr(1);
     int channelId = _server->getChannelIdByName(nameWithoutHash);
     if(channelId == -1)
     {
         ErrorHandler::noSuchChannel(cl, channelName);
-        return false;
+        return (false);
     }
     std::map<int, Channel>& channels = _server->getChannelList();
     Channel &channel = channels[channelId];
     if(!_server->isUserAlreadyInChannel(fd, channelId))
     {
         ErrorHandler::notOnChannel(cl, channelName);
-        return false;
+        return (false);
     }
     if (!channel.isOperator(fd))
     {
         ErrorHandler::chanOPrivsNeeded(cl, channelName);
-        return false;
+        return (false);
     }
     int targetFd = _server->getClientFdByNickname(targetNick);
     if (targetFd == 0 || !_server->isUserAlreadyInChannel(targetFd, channelId))
     {
         ErrorHandler::userNotInChannel(cl, targetNick, channelName);
-        return false;
+        return (false);
     }
-    return true;
+    return (true);
 }
 
 std::string CommandHandler::msgKick(std::string reason, Client &cl, std::string channel,
@@ -292,7 +292,7 @@ std::string user)
 
     std::string kickMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@localhost KICK "
                         + channel + " " + user + " :" + reason + "\r\n";
-    return kickMsg;
+    return (kickMsg);
 }
 
 void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data)
@@ -305,7 +305,7 @@ void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data
     if (channelId == -1)
     {
         ErrorHandler::noSuchChannel(cl, chan);
-        return;
+        return ;
     }
 
     for (size_t j = 0; j < data.users.size(); ++j)
@@ -336,7 +336,7 @@ void CommandHandler::kickMultiChannelsOneUser(int fd, Client& cl, kickData& data
         if (channelId == -1)
         {
             ErrorHandler::noSuchChannel(cl, chan);
-            continue;
+            continue ;
         }
 
         if (checkInKick(chan, user, cl, data.cmd, fd))
@@ -365,7 +365,7 @@ void CommandHandler::kickChannelsUsersPair(int fd, Client& cl, kickData& data)
         if (channelId == -1)
         {
             ErrorHandler::noSuchChannel(cl, chan);
-            continue;
+            continue ;
         }
 
         if (checkInKick(chan, user, cl, data.cmd, fd))
@@ -389,7 +389,7 @@ void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
     if (data.channels.empty() || data.users.empty())
     {
         ErrorHandler::needMoreParams(cl, data.cmd);
-        return;
+        return ;
     }
     if (data.channels.size() == 1 && data.users.size() >= 1)
         kickOneChannelMultiUsers(fd, cl, data);
@@ -401,7 +401,6 @@ void CommandHandler::cmdkick(int fd, std::istringstream& iss, Client& cl)
         ErrorHandler::needMoreParams(cl, data.cmd);
 }
 
-// TODO: implémenter l'envois de message dans les cannaux
 /*void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string targetUser, userMsg;
@@ -487,20 +486,13 @@ const int CommandHandler::checkCmdInvite(std::string chanName, std::string userN
 {
     if (userName.empty() || _server->getClientFdByNickname(userName) == -1)
     {
-        cl.sendMessage("ERROR :User not found\r\n");
+        ErrorHandler::noSuchNick(cl, userName);
         return (-1);
     }
-    
-    if (chanName.empty() ||
-        (chanName[0] != '#' && chanName[0] != '&' &&
-        chanName[0] != '!' && chanName[0] != '+'))
-    {
-        cl.sendMessage("ERROR :Need a prefix\r\n");
-        return (-1);
-    }
+
     return (0);
 }
-// TODO: More testing
+
 void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string chanName;
@@ -518,10 +510,9 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
     {
         if (_server->isUserAlreadyInChannel(_server->getClientFdByNickname(userName), targetId) == true)
         {
-            cl.sendMessage("ERROR :User already in this channel\r\n");
+            ErrorHandler::userOnChannel(cl, userName, chanName);
             return ;
         }
-        
         if (_server->isUserAlreadyInChannel(fd, targetId) == true && _server->isUserOperator(fd, targetId) == true)
         {
             Channel *ch = _server->getChannelById(targetId);
@@ -530,15 +521,20 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
             targetCl->sendMessage(formattedMsg);
             ch->inviteUser(_server->getClientFdByNickname(userName));
         }
+        else if (_server->isUserOperator(fd, targetId) == false)
+        {
+            ErrorHandler::notChannelOperator(cl, chanName);
+            return ;
+        }
         else
         {
-            cl.sendMessage("ERROR :You're not an operator\r\n");
+            ErrorHandler::notOnChannel(cl, chanName);
             return ;
         }
     }
     else
     {
-        cl.sendMessage("ERROR :No such channel\r\n");
+        ErrorHandler::noSuchChannel(cl, chanName);
         return ;
     }
 
@@ -572,7 +568,7 @@ std::vector<std::string> CommandHandler::parsePrivMsg(std::istringstream &iss,
             target.erase(pos, 1);
         }
         targets.push_back(target);
-        if(i > ERR_TOOMANYTARGETS)
+        if(i > MAX_TARGET)
         {
             ErrorHandler::tooManyTargets(cl, target);
             return {};
@@ -674,7 +670,7 @@ int CommandHandler::cmdTopicParsingChannelId(std::istringstream &iss, Client &cl
     iss >> channelTarget;
     if (channelTarget.empty())
     {
-        cl.sendMessage("461 TOPIC :Not enough parameters");
+        ErrorHandler::notEnoughParameters(cl, "TOPIC");
         return (-1);
     }
 
@@ -682,7 +678,7 @@ int CommandHandler::cmdTopicParsingChannelId(std::istringstream &iss, Client &cl
     int chanId = _server->getChannelIdByName(channelTarget);
     if (chanId < 0) 
     {
-        cl.sendMessage("403 " + channelTarget + " :No such channel");
+        ErrorHandler::noSuchChannel(cl, channelTarget);
         return (-1);
     }
     return (chanId);
@@ -695,14 +691,14 @@ int CommandHandler::cmdTopicParsingTopicSubjet(int fd, int chanId, Client &cl, C
         
     if (!_server->isUserAlreadyInChannel(fd, chanId)) 
     {
-        cl.sendMessage("442 " + channelTarget + " :You're not on that channel");
+        ErrorHandler::notOnChannel(cl, channelTarget);
         return (-1);
     }
     
     if (topic.empty()) 
     {
         if (ch->getTopic().empty())
-            cl.sendMessage("331 " + cl.getNickname() + " " + channelTarget + " :No topic is set");
+            ErrorHandler::noTopicSet(cl, channelTarget);
         else
             cl.sendMessage("332 " + cl.getNickname() + " " + channelTarget + " :" + ch->getTopic());
         return (-1);
@@ -730,7 +726,7 @@ void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
     {
         if (!_server->isUserOperator(fd, ch->getId()))
         {
-            cl.sendMessage("482 " + channelTarget + " :You're not channel operator");
+            ErrorHandler::notChannelOperator(cl, channelTarget);
             return ;
         }
     }

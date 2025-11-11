@@ -1,4 +1,9 @@
 #include "ErrorHandler.hpp"
+// 331 RPL_NOTOPIC
+void ErrorHandler::noTopicSet(Client &cl, const std::string &channelTarget)
+{
+    cl.sendMessage("331 " + cl.getNickname() + " " + channelTarget + " :No topic is set");
+}
 
 // 401 ERR_NOSUCHNICK
 void ErrorHandler::noSuchNick(Client& cl, const std::string& nickname)
@@ -233,6 +238,19 @@ void ErrorHandler::ERR_BADCHANMASK(Client& cl, const std::string& channel)
 {
      cl.sendMessage("476 " + channel + " :Bad Channel Mask\r\n");
 }
+
+void ErrorHandler::notEnoughParameters(Client& cl, const std::string& command)
+{
+    // 461 <command> :Not enough parameters
+    cl.sendMessage("461 " + cl.getNickname() + " " + command + " :Not enough parameters\r\n");
+}
+
+void ErrorHandler::notChannelOperator(Client& cl, const std::string& channel)
+{
+    // 482 <channel> :You're not channel operator
+    cl.sendMessage("482 " + cl.getNickname() + " " + channel + " :You're not channel operator\r\n");
+}
+
 
 // 481 ERR_NOPRIVILEGES
 void ErrorHandler::noPrivileges(Client& cl)

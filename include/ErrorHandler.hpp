@@ -10,7 +10,9 @@
 class ErrorHandler
 {
     public:
-        
+        // 331 RPL_NOTOPIC
+        static void noTopicSet(Client &cl, const std::string &channelTarget);
+
         // 401 ERR_NOSUCHNICK
         static void noSuchNick(Client& cl, const std::string& nickname);
         
