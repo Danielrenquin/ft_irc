@@ -668,7 +668,8 @@ void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
     // Envoi du message aux cibles
     sendPrivMsg(cl, targets, whichTarget, userMsg);
 }
-
+// TODO: FIX les changement de topics autorisé par les membres extérieur au channel
+ // TODO: Ajouter le t dans MODES
 void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
 {
     std::string channelTarget;
@@ -730,6 +731,5 @@ void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
     
     ch->setTopic(topic);
     std::string msg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " TOPIC " + channelTarget + " :" + topic;
-
     ch->sendMessage(msg);
 }
