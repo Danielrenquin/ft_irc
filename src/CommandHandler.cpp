@@ -641,7 +641,6 @@ void CommandHandler::removeFromChannels(int fd, Client &cl, std::string quitMsg)
             if(Operator.find(fd) != Operator.end())
             {
                 it->second.removeOperator(fd);
-                //redefinir un nouvelle opérateur si plus d' opérateurs
             }
         }
         if(it->second.getUserList().empty() && it->second.getOperators().empty())
@@ -649,6 +648,10 @@ void CommandHandler::removeFromChannels(int fd, Client &cl, std::string quitMsg)
             ChannelList.erase(it);
             flag = 1;
             break ;
+        }
+        else if(!it->second.getUserList().empty() && it->second.getOperators().empty())
+        {
+            it->second.addOperator(*Users.begin());
         }
     }
     if (flag == 1)
@@ -662,19 +665,3 @@ void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
     removeFromChannels(fd, cl, quitMsg);
     _server->removeClient(fd);
 }
-
-// TODO: retirer les clients lors de leurs deconnexion ainsi que les channel
-/*void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
-{
-    std::string quitMsg;
-    iss >> quitMsg;
-    std::cout << "quit message: " << quitMsg << std::endl;
-    std::map<int, Client>& clients = _server->getClients();
-    std::map<int, ClientContext>& contexts = _server->getContexts();
-    std::cout << "Client " << fd << " disconnected" << std::endl;
-    cl.sendMessage("[Server]: Goodbye, " + cl.getUsername() + "\r\n");
-    close(fd);
-    _server->removeClient();
-    clients.erase(fd);
-    contexts.erase(fd);
-}*/

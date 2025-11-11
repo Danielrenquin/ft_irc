@@ -10,7 +10,7 @@ class Channel
 		std::string _password;
 		std::set<int> _operators;
 		std::set<int> _invitedUser;
-		std::set<int> _userSet;
+		std::vector<int> _userSet;
 	public:
 		Channel();
 		Channel(int id, std::string name, int newOperatorFd, int newUserFd);
