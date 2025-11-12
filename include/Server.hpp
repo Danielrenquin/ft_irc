@@ -41,6 +41,7 @@ class Server
 		std::map<int, ClientContext> _contexts;
 		std::map<int, Channel> _channelList;
         std::vector<pollfd> _pfds;
+		std::map<int, std::string> _clientBuffers;
 		CommandHandler *_commandHandler;
     public:
         Server(int port);

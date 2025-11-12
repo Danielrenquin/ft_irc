@@ -18,7 +18,7 @@ class CommandHandler
 {
     private:
 
-    Server* _server;
+        Server* _server;
 
         typedef void(CommandHandler::*CommandFunc)(int fd, std::istringstream& iss, Client& cl);
         std::map<std::string, CommandFunc> _commands;

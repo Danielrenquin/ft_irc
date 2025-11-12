@@ -92,12 +92,6 @@ void Server::addClient(int fd)
     _pfds.push_back(pfd);
 }
 
-/*void Server::removeClient()
-{
-    std::swap(_pfds[_pfdsIndex], _pfds.back());
-    _pfds.pop_back();
-}*/
-
 void Server::removeClient(int fd)
 {
     for (std::vector<pollfd>::iterator it = _pfds.begin(); it != _pfds.end(); ++it)
@@ -368,9 +362,7 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         registerClient(fd, ctx, cl);
 }
 
-
-
-void Server::handleClientData()
+/*void Server::handleClientData()
 {
     int fd = _pfds[_pfdsIndex].fd;
     char buffer[MSG_SIZE];
@@ -384,8 +376,6 @@ void Server::handleClientData()
 
         close(fd);
         removeClient(fd);
-        //_clients.erase(fd);
-        //_contexts.erase(fd);
         return ;
     }
 
@@ -415,13 +405,73 @@ void Server::handleClientData()
     {
         _commandHandler->executeCommand(msg, fd, cl);
     }
+}*/
 
-	/*if (isUserInAnyChannel(fd))
-	{
-		//TODO: implémenter une fonction qui enverra les msg du user dans ses channels
-	}*/
+void Server::handleClientData()
+{
+    int fd = _pfds[_pfdsIndex].fd;
+    char buffer[MSG_SIZE];
+    int nbytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
 
+    // Déconnexion du client
+    if (nbytes <= 0)
+    {
+        if (nbytes == 0)
+            std::cout << "Client " << fd << " disconnected" << std::endl;
 
+        close(fd);
+        removeClient(fd);
+        _clientBuffers.erase(fd); // supprimer le buffer du client
+        return;
+    }
+
+    // Ajouter les données reçues au buffer existant
+    buffer[nbytes] = '\0';
+    _clientBuffers[fd] += std::string(buffer, nbytes);
+
+    // Boucle tant qu'il y a une commande complète (\n ou \r\n)
+    while (true)
+    {
+        size_t pos = _clientBuffers[fd].find("\r\n");
+        size_t skip = 2;
+        if (pos == std::string::npos)
+        {
+            pos = _clientBuffers[fd].find("\n");
+            skip = 1;
+        }
+
+        if (pos == std::string::npos)
+            break; // pas de commande complète
+
+        std::string cmd = _clientBuffers[fd].substr(0, pos);
+        _clientBuffers[fd].erase(0, pos + skip); // retirer la commande traitée
+
+        cmd = trim(cmd);
+        if (cmd.empty())
+            continue;
+
+        std::istringstream iss(cmd);
+        std::string command;
+        iss >> command;
+
+        Client &cl = _clients[fd];
+        ClientContext &ctx = _contexts[fd];
+
+        // Gestion de l'authentification
+        if (command == "PASS")
+            cmdPass(fd, iss, ctx, cl);
+        else if (command == "NICK")
+            cmdNick(fd, iss, ctx, cl);
+        else if (command == "USER")
+            cmdUser(fd, iss, ctx, cl);
+        else if (ctx.state != AUTHENTICATED)
+            cl.sendMessage("ERROR :You must register first\r\n");
+        else
+        {
+            // Commande IRC normale (JOIN, KICK, etc.)
+            _commandHandler->executeCommand(cmd, fd, cl);
+        }
+    }
 }
 
 void Server::handleConnections()
