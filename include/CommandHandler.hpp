@@ -51,8 +51,11 @@ class CommandHandler
             std::string user);
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
         int cmdTopicParsingTopicSubjet(int fd, int chanId, Client &cl, Channel *ch, std::string &topic, std::string &channelTarget);
-        int cmdTopicParsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget);
+        int parsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget, std::string command);
         void cmdTopic(int fd, std::istringstream &iss, Client &cl);
+		int cmdModesParsing(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded);
+		int cmdModesPreParsing(int fd, std::string &strModes, Client &cl, bool &userNeeded);
+		void cmdModes(int fd, std::istringstream &iss, Client &cl);
 
         //messagerie
         struct WhichTarget 

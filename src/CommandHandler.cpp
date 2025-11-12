@@ -74,6 +74,7 @@ void CommandHandler::registerCommands()
     _commands["QUIT"] = &CommandHandler::cmdQuit;
     _commands["INVITE"] = &CommandHandler::cmdInvite;
     _commands["TOPIC"] = &CommandHandler::cmdTopic;
+	_commands["MODE"] = &CommandHandler::cmdModes;
 }
 
 
@@ -665,12 +666,12 @@ void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
     sendPrivMsg(cl, targets, whichTarget, userMsg);
 }
 
-int CommandHandler::cmdTopicParsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget)
+int CommandHandler::parsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget, std::string command)
 {
     iss >> channelTarget;
     if (channelTarget.empty())
     {
-        ErrorHandler::notEnoughParameters(cl, "TOPIC");
+        ErrorHandler::notEnoughParameters(cl, command);
         return (-1);
     }
 
@@ -711,7 +712,7 @@ void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
     std::string channelTarget;
     std::string topic;
     
-    int chanId = cmdTopicParsingChannelId(iss, cl, channelTarget);
+    int chanId = parsingChannelId(iss, cl, channelTarget, "TOPIC");
     if (chanId < 0)
         return ;
     Channel *ch = _server->getChannelById(chanId);
@@ -737,4 +738,140 @@ void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
     ch->setTopic(topic);
     std::string msg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " TOPIC " + channelTarget + " :" + topic;
     ch->sendMessage(msg);
+}
+
+
+int countChar(std::string s, char c) 
+{
+	int count = 0;
+
+	if (s.empty())
+		return (0);
+
+	for (int i = 0; i < (int)s.size(); i++)
+	{
+		if (s[i] == c) 
+			count++;
+	}
+
+	return (count);
+}
+
+
+int CommandHandler::cmdModesPreParsing(int fd, std::string &strModes, Client &cl, bool &userNeeded)
+{
+	if (strModes.empty())
+	{
+		// ERROR mode empty
+		return (-1);
+	}
+	if (strModes.find_first_not_of("+-itkol") != std::string::npos)
+	{
+		// ERROR char incorrect
+		return (-1);
+	}
+	if (countChar(strModes, 'o') > 3)
+	{
+		// ERROR too many char
+		return (-1);
+	}
+	unsigned int pos = strModes.find('o');
+	if (pos != std::string::npos)
+	{
+		for (int i = pos; i > 0; i--)
+		{
+			if (strModes[i] == '+')
+			{
+				userNeeded = true;
+				break ;
+			}
+		}
+	}
+
+	return (0);
+}
+
+char skipMultipleSign(std::string &strModes, int &i)
+{
+	bool multipleModes = false;
+
+	while (strModes[i] == '+' || strModes[i] == '-')
+	{
+		i++;
+		multipleModes = true;
+	}
+	if (multipleModes)
+	{
+		i--;
+	}
+	multipleModes = false;
+	char sign = strModes[i];
+
+	return (sign);
+}
+
+int CommandHandler::cmdModesParsing(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded)
+{
+	std::set<char> modesToAdd;
+	std::set<char> modesToRemove;
+	
+
+	if (strModes[0] != '+' && strModes[0] != '-')
+	{
+		// ERROR PREFIX
+		return (-1);
+	}
+	
+    char currentSign = strModes[0];
+
+    for (int i = 1; i < (int)strModes.size(); ++i)
+    {
+        char c = strModes[i];
+
+        if (c == '+' || c == '-')
+        {
+            currentSign = c;
+            continue ;
+        }
+
+        if (currentSign == '+')
+            modesToAdd.insert(c);
+        else
+            modesToRemove.insert(c);
+    }
+		
+    // Debug 
+    std::cout << "Modes à ajouter : ";
+    for (std::set<char>::iterator it = modesToAdd.begin(); it != modesToAdd.end(); ++it)
+	{
+        std::cout << *it << " ";
+	}
+    std::cout << "\nModes à retirer : ";
+    for (std::set<char>::iterator it = modesToRemove.begin(); it != modesToRemove.end(); ++it)
+	{
+        std::cout << *it << " ";
+	}
+    std::cout << std::endl;
+	
+	return (0);
+}
+
+//TODO: Verif si le user est bien présent dans le channel en question
+void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
+{
+	std::string channelTarget;
+	std::string strModes;
+	std::string userTarget;
+	bool userNeeded = false;
+
+	int chanId = parsingChannelId(iss, cl, channelTarget, "MODE");
+    if (chanId < 0)
+        return ;
+    Channel *ch = _server->getChannelById(chanId);
+	iss >> strModes;
+	if (cmdModesPreParsing(fd, strModes, cl, userNeeded) == -1)
+		return ;
+	if (cmdModesParsing(fd, strModes, cl, ch, userNeeded) == -1)
+		return ;
+
 }
