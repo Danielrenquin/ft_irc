@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Server.hpp"
+#include "unorderedset.hpp"
 
 class Channel
 {
@@ -10,7 +11,7 @@ class Channel
 		std::string _password;
 		std::set<int> _operators;
 		std::set<int> _invitedUser;
-		std::vector<int> _userSet;
+		unorderedSet<int> _userSet;
 	public:
 		Channel();
 		Channel(int id, std::string name, int newOperatorFd, int newUserFd);
@@ -23,7 +24,7 @@ class Channel
 		const std::string getName() const;
 		const std::string getPassword() const;
 		const int getId() const;
-		const std::set<int>&getUserList() const;
+		const unorderedSet<int>& getUserList() const;
 		const std::set<int>&getOperators() const;
 
 		bool isOperator(int fd) const;

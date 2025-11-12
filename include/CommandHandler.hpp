@@ -67,7 +67,7 @@ class CommandHandler
 
         //quit
         std::string parsequit(std::istringstream &iss, Client &cl);
-        void removeFromChannels(int fd, Client &cl, std::string quitMsg);
+        void removeFromChannels(int fd, Client &cl, const std::string& quitMsg);
         void cmdQuit(int fd, std::istringstream &iss, Client &cl);
 
     public:

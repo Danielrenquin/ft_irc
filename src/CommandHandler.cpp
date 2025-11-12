@@ -42,13 +42,13 @@ void printChannelMap(const std::map<K, V>& channels, const std::string& title = 
         std::cout << std::endl;
 
         // --- Affichage des utilisateurs ---
-        const std::set<int>& users = channel.getUserList();
+       const unorderedSet<int>& users = channel.getUserList();
         std::cout << "  Users (" << users.size() << "): ";
         if (users.empty())
             std::cout << "(none)";
         else
         {
-            for (std::set<int>::const_iterator uIt = users.begin(); uIt != users.end(); ++uIt)
+            for (unorderedSet<int>::const_iterator uIt = users.begin(); uIt != users.end(); ++uIt)
             {
                 std::cout << *uIt << " ";
             }
@@ -110,9 +110,9 @@ void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std
         channelName = channelName.substr(1);
     int channelId = _server->getChannelIdByName(channelName);
     Channel &channel = channels[channelId];
-    std::set<int> userList = channel.getUserList();
+    unorderedSet<int> userList = channel.getUserList();
 
-    for (std::set<int>::iterator it = userList.begin(); it != userList.end(); ++it)
+    for (unorderedSet<int>::iterator it = userList.begin(); it != userList.end(); ++it)
     {
         int userFd = *it;
         clients[userFd].sendMessage(msg);
@@ -623,40 +623,45 @@ std::string CommandHandler::parsequit(std::istringstream &iss, Client &cl)
     return formattedMsg;
 }
 
-void CommandHandler::removeFromChannels(int fd, Client &cl, std::string quitMsg)
+void CommandHandler::removeFromChannels(int fd, Client &cl, const std::string& quitMsg)
 {
     std::map<int, Channel>& ChannelList = _server->getChannelList();
-    std::set<int> Users;
-    std::set<int> Operator;
-    int flag = 0;
+    std::vector<int> channelsToErase;
 
-    for(std::map<int, Channel>::iterator it = ChannelList.begin(); it != ChannelList.end(); ++it)
+    for (std::map<int, Channel>::iterator it = ChannelList.begin(); it != ChannelList.end(); ++it)
     {
-        Users = it->second.getUserList();
-        if (Users.find(fd) != Users.end())
+        Channel &ch = it->second;
+
+        // Vérifie si l'utilisateur est présent
+        if (ch.getUserList().find(fd) != ch.getUserList().end())
         {
-            it->second.sendMessageAvoidingSender(quitMsg, fd);
-            it->second.removeUser(fd);
-            Operator = it->second.getOperators();
-            if(Operator.find(fd) != Operator.end())
-            {
-                it->second.removeOperator(fd);
-            }
+            // Préviens les autres utilisateurs
+            ch.sendMessageAvoidingSender(quitMsg, fd);
+
+            // Supprime l'utilisateur et retire son statut d'opérateur si nécessaire
+            ch.removeUser(fd);
+            if (ch.isOperator(fd))
+                ch.removeOperator(fd);
         }
-        if(it->second.getUserList().empty() && it->second.getOperators().empty())
+
+        // Gestion des opérateurs si aucun opérateur restant
+        if (!ch.getUserList().empty() && ch.getOperators().empty())
         {
-            ChannelList.erase(it);
-            flag = 1;
-            break ;
+            // Le user le plus ancien devient opérateur
+            int oldestUserFd = *ch.getUserList().begin();
+            ch.addOperator(oldestUserFd);
         }
-        else if(!it->second.getUserList().empty() && it->second.getOperators().empty())
-        {
-            it->second.addOperator(*Users.begin());
-        }
+
+        // Si le channel est vide, planifie sa suppression
+        if (ch.getUserList().empty() && ch.getOperators().empty())
+            channelsToErase.push_back(ch.getId());
     }
-    if (flag == 1)
-        removeFromChannels(fd, cl, quitMsg);
+
+    // Supprime les channels vides après la boucle pour éviter invalidation d'itérateur
+    for (size_t i = 0; i < channelsToErase.size(); ++i)
+        ChannelList.erase(channelsToErase[i]);
 }
+
 
 void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
 {

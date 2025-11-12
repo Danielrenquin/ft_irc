@@ -231,7 +231,7 @@ bool Server::isUserInAnyChannel(int fd)
 	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); ++it)
 	{
 		Channel &ch = it->second;
-		const std::set<int> &users = ch.getUserList();
+		const unorderedSet<int> &users = ch.getUserList();
 
 		if (users.find(fd) != users.end())
 			return (true);
@@ -263,7 +263,7 @@ bool Server::isAnExistingUser(int fd)
 bool Server::isUserAlreadyInChannel(int fd, int targetId)
 {
 	Channel &ch = _channelList[targetId];
-	for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+	for (unorderedSet<int>::const_iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
 	{
 		if (*it == fd)
 			return (true);
