@@ -810,16 +810,16 @@ char skipMultipleSign(std::string &strModes, int &i)
 	return (sign);
 }
 
-std::pair<std::set<char>, std::set<char> > CommandHandler::cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded)
+std::pair<std::vector<char>, std::vector<char> > CommandHandler::cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded)
 {
-	std::set<char> modesToAdd;
-	std::set<char> modesToRemove;
+	std::vector<char> modesToAdd;
+	std::vector<char> modesToRemove;
 	
 
 	if (strModes[0] != '+' && strModes[0] != '-')
 	{
 		// ERROR PREFIX
-		return (std::pair<std::set<char>, std::set<char> > ());
+		return (std::pair<std::vector<char>, std::vector<char> > ());
 	}
 	
     char currentSign = strModes[0];
@@ -835,41 +835,68 @@ std::pair<std::set<char>, std::set<char> > CommandHandler::cmdModesParsingSets(i
         }
 
         if (currentSign == '+')
-            modesToAdd.insert(c);
+            modesToAdd.push_back(c);
         else
-            modesToRemove.insert(c);
+            modesToRemove.push_back(c);
     }
 		
     // Debug 
     std::cout << "Modes à ajouter : ";
-    for (std::set<char>::iterator it = modesToAdd.begin(); it != modesToAdd.end(); ++it)
+    for (std::vector<char>::iterator it = modesToAdd.begin(); it != modesToAdd.end(); ++it)
 	{
         std::cout << *it << " ";
 	}
     std::cout << "\nModes à retirer : ";
-    for (std::set<char>::iterator it = modesToRemove.begin(); it != modesToRemove.end(); ++it)
+    for (std::vector<char>::iterator it = modesToRemove.begin(); it != modesToRemove.end(); ++it)
 	{
         std::cout << *it << " ";
 	}
     std::cout << std::endl;
 	
-	return (std::pair<std::set<char>, std::set<char> >(modesToAdd, modesToRemove));
+	return (std::pair<std::vector<char>, std::vector<char> >(modesToAdd, modesToRemove));
 }
 // first -> modeToAdd 
 // second -> modeToRemove
-void CommandHandler::cmdModesAddingSets(std::pair<std::set<char>, std::set<char> > modes, Channel *ch)
+void CommandHandler::cmdModesAddingSets(std::pair<std::vector<char>, std::vector<char> > modes, Channel *ch)
 {
-    for (std::set<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
+    for (std::vector<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
 	{
         ch->addMode(*it);
 	}
-    for (std::set<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
+    for (std::vector<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
 	{
         ch->removeMode(*it);
 	}
 }
 
-//TODO: Execution du mode 'o' afin d'add ou rm des ops
+char cmdModesWhichFirst(std::pair<std::vector<char>, std::vector<char> > modes)
+{
+	int l_index = 0;
+	int o_index = 0;
+
+    for (std::vector<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
+	{
+        if (*it == 'l')
+		{
+			break ;
+		}
+		l_index++;
+	}
+	for (std::vector<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
+	{
+        if (*it == 'o')
+		{
+			break ;
+		}
+		o_index++;
+	}
+    for (std::vector<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
+	{
+
+	}
+}
+
+//TODO: Execution + parsing des modes 'o' 'l'
 void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string channelTarget;
@@ -891,7 +918,7 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 	iss >> strModes;
 	if (cmdModesPreParsing(fd, strModes, cl, userNeeded) == -1)
 		return ;
-	std::pair<std::set<char>, std::set<char> > modes(cmdModesParsingSets(fd, strModes, cl, ch, userNeeded));
+	std::pair<std::vector<char>, std::vector<char> > modes(cmdModesParsingSets(fd, strModes, cl, ch, userNeeded));
 	if (modes.first.empty() && modes.second.empty())
 		return ;
 	

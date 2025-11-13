@@ -53,8 +53,8 @@ class CommandHandler
         int cmdTopicParsingTopicSubjet(int fd, int chanId, Client &cl, Channel *ch, std::string &topic, std::string &channelTarget);
         int parsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget, std::string command);
         void cmdTopic(int fd, std::istringstream &iss, Client &cl);
-		void cmdModesAddingSets(std::pair<std::set<char>, std::set<char> > modes, Channel *ch);
-		std::pair<std::set<char>, std::set<char> > cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded);
+		void cmdModesAddingSets(std::pair<std::vector<char>, std::vector<char> > modes, Channel *ch);
+		std::pair<std::vector<char>, std::vector<char> > cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded);
 		int cmdModesPreParsing(int fd, std::string &strModes, Client &cl, bool &userNeeded);
 		void cmdModes(int fd, std::istringstream &iss, Client &cl);
 
