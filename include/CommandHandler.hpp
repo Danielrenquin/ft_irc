@@ -32,12 +32,12 @@ class CommandHandler
         void BroadcastToChannel(std::string channelName, Client &cl, std::string msg);
 
         //gestion de channels
-        std::pair<std::vector<std::string>, std::vector<std::string>> fillListCmdInvite(std::istringstream &iss);
+        std::pair<std::vector<std::string>, std::vector<std::string> > fillListCmdInvite(std::istringstream &iss);
         const int checkCmdInvite(std::string chanName, std::string userName, Client &cl);
         void cmdInvite(int fd, std::istringstream &iss, Client &cl);
 
         int cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password);
-        std::pair<std::vector<std::string>, std::vector<std::string>> fillListCmdJoin(std::istringstream &iss);
+        std::pair<std::vector<std::string>, std::vector<std::string> > fillListCmdJoin(std::istringstream &iss);
         void cmdJoin(int fd, std::istringstream &iss, Client &cl);
 
         void kickOneChannelMultiUsers(int fd, Client& cl, kickData& data);
@@ -53,7 +53,8 @@ class CommandHandler
         int cmdTopicParsingTopicSubjet(int fd, int chanId, Client &cl, Channel *ch, std::string &topic, std::string &channelTarget);
         int parsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget, std::string command);
         void cmdTopic(int fd, std::istringstream &iss, Client &cl);
-		int cmdModesParsing(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded);
+		void cmdModesAddingSets(std::pair<std::set<char>, std::set<char> > modes, Channel *ch);
+		std::pair<std::set<char>, std::set<char> > cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded);
 		int cmdModesPreParsing(int fd, std::string &strModes, Client &cl, bool &userNeeded);
 		void cmdModes(int fd, std::istringstream &iss, Client &cl);
 

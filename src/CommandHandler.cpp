@@ -154,7 +154,7 @@ int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, s
     return(0);
 }
 
-std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fillListCmdJoin(std::istringstream &iss)
+std::pair<std::vector<std::string>, std::vector<std::string> > CommandHandler::fillListCmdJoin(std::istringstream &iss)
 {
     std::string channelsToken;
     std::string keysToken;
@@ -178,14 +178,14 @@ std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fi
         while (std::getline(kstream, key, ','))
             passList.push_back(key);
     }
-    return {channelList, passList};
+    return (std::pair<std::vector<std::string>, std::vector<std::string> > (channelList, passList));
 }
 
 void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
 {
     static int id = 0;
     std::map<int, Channel>& _channelList = _server->getChannelList();
-    std::pair<std::vector<std::string>, std::vector<std::string>> data = fillListCmdJoin(iss);
+    std::pair<std::vector<std::string>, std::vector<std::string> > data = fillListCmdJoin(iss);
     std::vector<std::string> channelList = data.first;
 	std::vector<std::string> passList = data.second;
 
@@ -200,7 +200,7 @@ void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         channel[0] != '!' && channel[0] != '+'))
         {
             ErrorHandler::ERR_BADCHANMASK(cl, channel);
-            continue;
+            continue ;
         }
 
         // check channel exist
@@ -211,8 +211,8 @@ void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
             //std::string password = (i < passList.size()) ? passList[i] : "";
             std::string password = passList.empty() ? "" : passList[i];
             if(cmdJoinAnExistingChannel(fd, cl, targetId, password) == -1)
-                return;
-            continue;
+                return ;
+            continue ;
         }
          // Create channel
         _channelList[id] = passList.empty()
@@ -456,7 +456,7 @@ void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
     contexts.erase(fd);
 }
 
-std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fillListCmdInvite(std::istringstream &iss)
+std::pair<std::vector<std::string>, std::vector<std::string> > CommandHandler::fillListCmdInvite(std::istringstream &iss)
 {
 	std::string channelsToken;
 	std::string nameToken;
@@ -480,7 +480,7 @@ std::pair<std::vector<std::string>, std::vector<std::string>> CommandHandler::fi
 		while (std::getline(nameStream, name, ','))
 			nameList.push_back(name);
 	}
-	return {channelList, nameList};
+	return (std::pair<std::vector<std::string>, std::vector<std::string> > (channelList, nameList));
 }
 
 const int CommandHandler::checkCmdInvite(std::string chanName, std::string userName, Client &cl)
@@ -572,7 +572,7 @@ std::vector<std::string> CommandHandler::parsePrivMsg(std::istringstream &iss,
         if(i > MAX_TARGET)
         {
             ErrorHandler::tooManyTargets(cl, target);
-            return {};
+            return (std::vector<std::string> ());
         }
         i++;
     }
@@ -588,7 +588,7 @@ std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client 
 		if (targets[i].empty()) 
 		{
 			ErrorHandler::noRecipient(cl, cl.getNickname());
-			return {};
+			return (std::vector<CommandHandler::WhichTarget> ());
 		}
 
 		WhichTarget wt;
@@ -600,7 +600,7 @@ std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client 
 			if (wt.id < 0) 
 			{
 				ErrorHandler::noSuchChannel(cl, targets[i]);
-				return {};
+				return (std::vector<CommandHandler::WhichTarget> ());
 			}
 		} 
 		else 
@@ -610,7 +610,7 @@ std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client 
 			if (wt.id < 0) 
 			{
 				ErrorHandler::noSuchNick(cl, cl.getNickname());
-				return {};
+				return (std::vector<CommandHandler::WhichTarget> ());
 			}
 		}
 		whichTarget.push_back(wt);
@@ -741,7 +741,7 @@ void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
 }
 
 
-int countChar(std::string s, char c) 
+static int countChar(std::string s, char c) 
 {
 	int count = 0;
 
@@ -810,7 +810,7 @@ char skipMultipleSign(std::string &strModes, int &i)
 	return (sign);
 }
 
-int CommandHandler::cmdModesParsing(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded)
+std::pair<std::set<char>, std::set<char> > CommandHandler::cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch, bool &userNeeded)
 {
 	std::set<char> modesToAdd;
 	std::set<char> modesToRemove;
@@ -819,7 +819,7 @@ int CommandHandler::cmdModesParsing(int fd, std::string &strModes, Client &cl, C
 	if (strModes[0] != '+' && strModes[0] != '-')
 	{
 		// ERROR PREFIX
-		return (-1);
+		return (std::pair<std::set<char>, std::set<char> > ());
 	}
 	
     char currentSign = strModes[0];
@@ -853,10 +853,23 @@ int CommandHandler::cmdModesParsing(int fd, std::string &strModes, Client &cl, C
 	}
     std::cout << std::endl;
 	
-	return (0);
+	return (std::pair<std::set<char>, std::set<char> >(modesToAdd, modesToRemove));
+}
+// first -> modeToAdd 
+// second -> modeToRemove
+void CommandHandler::cmdModesAddingSets(std::pair<std::set<char>, std::set<char> > modes, Channel *ch)
+{
+    for (std::set<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
+	{
+        ch->addMode(*it);
+	}
+    for (std::set<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
+	{
+        ch->removeMode(*it);
+	}
 }
 
-//TODO: Verif si le user est bien présent dans le channel en question
+//TODO: Execution du mode 'o' afin d'add ou rm des ops
 void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string channelTarget;
@@ -864,14 +877,51 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 	std::string userTarget;
 	bool userNeeded = false;
 
-	int chanId = parsingChannelId(iss, cl, channelTarget, "MODE");
-    if (chanId < 0)
+
+	int channelId = parsingChannelId(iss, cl, channelTarget, "MODE");
+    if (channelId < 0)
         return ;
-    Channel *ch = _server->getChannelById(chanId);
+    Channel *ch = _server->getChannelById(channelId);
+	if (_server->isUserOperator(fd, channelId))
+	{
+		// ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL
+		return ;
+	}
+	
 	iss >> strModes;
 	if (cmdModesPreParsing(fd, strModes, cl, userNeeded) == -1)
 		return ;
-	if (cmdModesParsing(fd, strModes, cl, ch, userNeeded) == -1)
+	std::pair<std::set<char>, std::set<char> > modes(cmdModesParsingSets(fd, strModes, cl, ch, userNeeded));
+	if (modes.first.empty() && modes.second.empty())
 		return ;
+	
+	cmdModesAddingSets(modes, ch);
+	// Parsing tageted user
+	if (userNeeded)
+	{
+		iss >> userTarget;
+		if (userTarget.empty())
+		{
+			// ERROR USER EMPTY
+			return ;
+		}
+		int targetFd = _server->getClientFdByNickname(userTarget);
+		if (targetFd < 0)
+		{
+			// ERROR NO SUCH USER
+			return ;
+		}
+		if (_server->isUserAlreadyInChannel(targetFd, channelId) == false)
+		{
+			// ERROR TARGET USER NOT IN CHANNEL
+			return ;
+		}
+		if (_server->isUserOperator(targetFd, channelId))
+		{
+			// EEROR ?? TARGET USER ALREADY OPERATOR
+			return ;
+		}
+	}
+	
 
 }
