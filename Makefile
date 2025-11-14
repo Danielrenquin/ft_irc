@@ -50,7 +50,8 @@ HEADERS		= $(INC_DIR)/Server.hpp \
 			  $(INC_DIR)/Channel.hpp \
 			  $(INC_DIR)/CommandHandler.hpp \
 			  $(INC_DIR)/ErrorHandler.hpp \
-			  $(INC_DIR)/utils.hpp
+			  $(INC_DIR)/utils.hpp \
+			  $(INC_DIR)/unorderedset.hpp
 
 # **************************************************************************** #
 #                                   COLORS                                     #
