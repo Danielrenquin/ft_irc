@@ -328,7 +328,8 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
     {
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
         return;
-    }std::cout << "removefromchannels" << std::endl;
+    }
+    std::cout << "removefromchannels" << std::endl;
     if (!realname.empty() && realname[0] == ' ')
         realname = realname.substr(1);
     if (!realname.empty() && realname[0] == ':')
@@ -342,7 +343,6 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
     if (ctx.hasPass && ctx.hasNick)
         registerClient(fd, ctx, cl);
 }
-
 
 void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl)
 {
@@ -362,66 +362,52 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         registerClient(fd, ctx, cl);
 }
 
-/*void Server::handleClientData()
+//gère les deconnexions brutale du client
+void Server::handleDisconected(int fd, int nbytes)
 {
-    int fd = _pfds[_pfdsIndex].fd;
-    char buffer[MSG_SIZE];
-    int nbytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
-
-	// Deconnexion et reset du client
-    if (nbytes <= 0)
-    {
-        if (nbytes == 0)
-            std::cout << "Client " << fd << " disconnected" << std::endl;
-
+        Client &cl = _clients[fd];
+        if(nbytes == 0)
+        {
+            std::cout << ":" + cl.getNickname() + "!" + cl.getUsername() + "@"
+            + cl.getHostname() + "QUIT" + ":Connection reset by peer" + "\r\n";
+        }
         close(fd);
         removeClient(fd);
-        return ;
-    }
+        _clientBuffers.erase(fd);
+}
 
-    buffer[nbytes] = '\0';
-    std::string msg = trim(buffer);
+//si la commande est complete le buffer de commande est copier
+//dans la variable cmd et le buffer est libérer
+bool Server::cmdIsComplete(int fd, std::string& cmd)
+{
+    size_t pos;
+    size_t skip;
 
-	// Setup du client et de son context
-    Client &cl = _clients[fd];
-    ClientContext &ctx = _contexts[fd];
-
-	std::cout << "client fd (clientdata); " << cl.getFd() << std::endl;
-
-    // Authentification du client
-    std::istringstream iss(msg);
-    std::string command;
-    iss >> command;
-
-    if (command == "PASS")
-        cmdPass(fd, iss, ctx, cl);
-    else if (command == "NICK")
-        cmdNick(fd, iss, ctx, cl);
-    else if (command == "USER")
-        cmdUser(fd, iss, ctx, cl);
-    else if (ctx.state != AUTHENTICATED)
-       cl.sendMessage("ERROR :You must register first\r\n");
-    else
+    pos = _clientBuffers[fd].find("\r\n");
+    skip = 2;
+    if(pos == std::string::npos)
     {
-        _commandHandler->executeCommand(msg, fd, cl);
+        pos = _clientBuffers[fd].find("\n");
+        skip = 1;
     }
-}*/
+    if(pos == std::string::npos)
+        return (0);
+    cmd = _clientBuffers[fd].substr(0, pos);
+    _clientBuffers[fd].erase(0, pos + skip);
+    return(1);
+}
 
 void Server::handleClientData()
 {
     int fd = _pfds[_pfdsIndex].fd;
     char buffer[MSG_SIZE];
     int nbytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
+    std::string cmd;
 
     // Déconnexion du client
     if (nbytes <= 0)
     {
-        if (nbytes == 0)
-            std::cout << "Client " << fd << " disconnected" << std::endl;
-
-        close(fd);
-        removeClient(fd);
-        _clientBuffers.erase(fd); // supprimer le buffer du client
+        handleDisconected(fd, nbytes);
         return;
     }
 
@@ -432,20 +418,9 @@ void Server::handleClientData()
     // Boucle tant qu'il y a une commande complète (\n ou \r\n)
     while (true)
     {
-        size_t pos = _clientBuffers[fd].find("\r\n");
-        size_t skip = 2;
-        if (pos == std::string::npos)
-        {
-            pos = _clientBuffers[fd].find("\n");
-            skip = 1;
-        }
-
-        if (pos == std::string::npos)
-            break; // pas de commande complète
-
-        std::string cmd = _clientBuffers[fd].substr(0, pos);
-        _clientBuffers[fd].erase(0, pos + skip); // retirer la commande traitée
-
+        //vois si la fonction est complète ou pas et la traite partielement si complète
+        if(!cmdIsComplete(fd, cmd))
+            break;
         cmd = trim(cmd);
         if (cmd.empty())
             continue;
@@ -453,11 +428,10 @@ void Server::handleClientData()
         std::istringstream iss(cmd);
         std::string command;
         iss >> command;
-
         Client &cl = _clients[fd];
         ClientContext &ctx = _contexts[fd];
 
-        // Gestion de l'authentification
+        // Gestion de l'authentification ou execution de commande 
         if (command == "PASS")
             cmdPass(fd, iss, ctx, cl);
         else if (command == "NICK")
@@ -467,10 +441,7 @@ void Server::handleClientData()
         else if (ctx.state != AUTHENTICATED)
             cl.sendMessage("ERROR :You must register first\r\n");
         else
-        {
-            // Commande IRC normale (JOIN, KICK, etc.)
             _commandHandler->executeCommand(cmd, fd, cl);
-        }
     }
 }
 

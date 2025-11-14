@@ -60,6 +60,8 @@ class Server
 
         void addClient(int fd);
         void removeClient(int fd);
+		void handleDisconected(int fd, int nbytes);
+		bool cmdIsComplete(int fd, std::string &cmd);
         void handleClientData();
         void handleConnections();
 		void acceptNewClient();
@@ -77,7 +79,7 @@ class Server
 
 		void registerClient(int fd, ClientContext &ctx, Client &cl);
 
-		// CMD
+		//authentification
 		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);

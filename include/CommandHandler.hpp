@@ -23,11 +23,6 @@ class CommandHandler
         typedef void(CommandHandler::*CommandFunc)(int fd, std::istringstream& iss, Client& cl);
         std::map<std::string, CommandFunc> _commands;
 
-        //authentification
-        //void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
-		//void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
-		//void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
-
         //fonction utilitaire
         void BroadcastToChannel(std::string channelName, Client &cl, std::string msg);
 
