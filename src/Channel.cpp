@@ -24,6 +24,7 @@ Channel::Channel(int id, std::string name, std::string password, int newOperator
 
 Channel::~Channel()
 {
+
 }
 
 Channel::Channel(const Channel &other)
@@ -53,9 +54,9 @@ const std::string Channel::getName() const
     return (_name);
 }
 
-const std::set<int>&Channel::getUserList() const
+const unordered_set<int>& Channel::getUserList() const 
 {
-    return (_userSet);
+    return _userSet;
 }
 
 const std::set<int>&Channel::getOperators() const
@@ -133,16 +134,18 @@ void Channel::removeUser(int fd)
 	_userSet.erase(fd);
 }
 
-void Channel::sendMessage(const std::string &msg) const 
+void Channel::sendMessage(const std::string &msg) const
 {
-    for (std::set<int>::iterator itr = _userSet.begin(); itr != _userSet.end(); itr++) 
+    for (unordered_set<int>::const_iterator itr = _userSet.begin(); itr != _userSet.end(); ++itr)
     {
         if (*itr != -1)
         {
             std::cout << "client fd (send msg): " << *itr << std::endl;
+
             std::string formatted = msg;
             if (formatted.find("\r\n") == std::string::npos)
                 formatted += "\r\n";
+
             ssize_t res = send(*itr, formatted.c_str(), formatted.size(), 0);
             if (res == -1)
                 herror("send");
@@ -150,22 +153,21 @@ void Channel::sendMessage(const std::string &msg) const
     }
 }
 
-void Channel::sendMessageAvoidingSender(const std::string &msg, int senderFd) const 
+void Channel::sendMessageAvoidingSender(const std::string &msg, int senderFd) const
 {
-    for (std::set<int>::iterator itr = _userSet.begin(); itr != _userSet.end(); itr++) 
+    for (unordered_set<int>::const_iterator itr = _userSet.begin(); itr != _userSet.end(); ++itr)
     {
-        if (*itr != -1)
+        if (*itr != -1 && *itr != senderFd)
         {
             std::cout << "client fd (send msg): " << *itr << std::endl;
+
             std::string formatted = msg;
             if (formatted.find("\r\n") == std::string::npos)
                 formatted += "\r\n";
-            if (*itr != senderFd)
-            {
-                ssize_t res = send(*itr, formatted.c_str(), formatted.size(), 0);
-                if (res == -1)
-                    herror("send");
-            }
+
+            ssize_t res = send(*itr, formatted.c_str(), formatted.size(), 0);
+            if (res == -1)
+                herror("send");
         }
     }
 }

@@ -92,10 +92,18 @@ void Server::addClient(int fd)
     _pfds.push_back(pfd);
 }
 
-void Server::removeClient()
+void Server::removeClient(int fd)
 {
-    std::swap(_pfds[_pfdsIndex], _pfds.back());
-    _pfds.pop_back();
+    for (std::vector<pollfd>::iterator it = _pfds.begin(); it != _pfds.end(); ++it)
+    {
+        if (it->fd == fd)
+        {
+            _pfds.erase(it);
+            break;
+        }
+    }
+    _clients.erase(fd);
+    _contexts.erase(fd);
 }
 
 // Permet de parser le buffer
@@ -217,7 +225,7 @@ bool Server::isUserInAnyChannel(int fd)
 	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); ++it)
 	{
 		Channel &ch = it->second;
-		const std::set<int> &users = ch.getUserList();
+		const unordered_set<int> &users = ch.getUserList();
 
 		if (users.find(fd) != users.end())
 			return (true);
@@ -233,7 +241,7 @@ bool Server::isUserOperator(int fd, int targetId)
 		if (*it == fd)
 			return (true);
 	}
-	return (false);   
+	return (false);
 }
 
 bool Server::isAnExistingUser(int fd)
@@ -249,7 +257,7 @@ bool Server::isAnExistingUser(int fd)
 bool Server::isUserAlreadyInChannel(int fd, int targetId)
 {
 	Channel &ch = _channelList[targetId];
-	for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
+	for (unordered_set<int>::const_iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
 	{
 		if (*it == fd)
 			return (true);
@@ -321,6 +329,7 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
         cl.sendMessage("461 * USER :Not enough parameters\r\n");
         return;
     }
+    std::cout << "removefromchannels" << std::endl;
     if (!realname.empty() && realname[0] == ' ')
         realname = realname.substr(1);
     if (!realname.empty() && realname[0] == ':')
@@ -334,7 +343,6 @@ void Server::cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client
     if (ctx.hasPass && ctx.hasNick)
         registerClient(fd, ctx, cl);
 }
-
 
 void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl)
 {
@@ -354,60 +362,87 @@ void Server::cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client
         registerClient(fd, ctx, cl);
 }
 
+//gère les deconnexions brutale du client
+void Server::handleDisconected(int fd, int nbytes)
+{
+        Client &cl = _clients[fd];
+        if(nbytes == 0)
+        {
+            std::cout << ":" + cl.getNickname() + "!" + cl.getUsername() + "@"
+            + cl.getHostname() + "QUIT" + ":Connection reset by peer" + "\r\n";
+        }
+        close(fd);
+        removeClient(fd);
+        _clientBuffers.erase(fd);
+}
 
+//si la commande est complete le buffer de commande est copier
+//dans la variable cmd et le buffer est libérer
+bool Server::cmdIsComplete(int fd, std::string& cmd)
+{
+    size_t pos;
+    size_t skip;
+
+    pos = _clientBuffers[fd].find("\r\n");
+    skip = 2;
+    if(pos == std::string::npos)
+    {
+        pos = _clientBuffers[fd].find("\n");
+        skip = 1;
+    }
+    if(pos == std::string::npos)
+        return (0);
+    cmd = _clientBuffers[fd].substr(0, pos);
+    _clientBuffers[fd].erase(0, pos + skip);
+    return(1);
+}
 
 void Server::handleClientData()
 {
     int fd = _pfds[_pfdsIndex].fd;
     char buffer[MSG_SIZE];
     int nbytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
+    std::string cmd;
 
-	// Deconnexion et reset du client
+    // Déconnexion du client
     if (nbytes <= 0)
     {
-        if (nbytes == 0)
-            std::cout << "Client " << fd << " disconnected" << std::endl;
-
-        close(fd);
-        removeClient();
-        _clients.erase(fd);
-        _contexts.erase(fd);
-        return ;
+        handleDisconected(fd, nbytes);
+        return;
     }
 
+    // Ajouter les données reçues au buffer existant
     buffer[nbytes] = '\0';
-    std::string msg = trim(buffer);
+    _clientBuffers[fd] += std::string(buffer, nbytes);
 
-	// Setup du client et de son context
-    Client &cl = _clients[fd];
-    ClientContext &ctx = _contexts[fd];
-
-	std::cout << "client fd (clientdata); " << cl.getFd() << std::endl;
-
-    // Authentification du client
-    std::istringstream iss(msg);
-    std::string command;
-    iss >> command;
-
-    if (command == "PASS")
-        cmdPass(fd, iss, ctx, cl);
-    else if (command == "NICK")
-        cmdNick(fd, iss, ctx, cl);
-    else if (command == "USER")
-        cmdUser(fd, iss, ctx, cl);
-    else if (ctx.state != AUTHENTICATED)
-       cl.sendMessage("ERROR :You must register first\r\n");
-    else
+    // Boucle tant qu'il y a une commande complète (\n ou \r\n)
+    while (true)
     {
-        _commandHandler->executeCommand(msg, fd, cl);
+        //vois si la fonction est complète ou pas et la traite partielement si complète
+        if(!cmdIsComplete(fd, cmd))
+            break;
+        cmd = trim(cmd);
+        if (cmd.empty())
+            continue;
+
+        std::istringstream iss(cmd);
+        std::string command;
+        iss >> command;
+        Client &cl = _clients[fd];
+        ClientContext &ctx = _contexts[fd];
+
+        // Gestion de l'authentification ou execution de commande 
+        if (command == "PASS")
+            cmdPass(fd, iss, ctx, cl);
+        else if (command == "NICK")
+            cmdNick(fd, iss, ctx, cl);
+        else if (command == "USER")
+            cmdUser(fd, iss, ctx, cl);
+        else if (ctx.state != AUTHENTICATED)
+            cl.sendMessage("ERROR :You must register first\r\n");
+        else
+            _commandHandler->executeCommand(cmd, fd, cl);
     }
-
-	/*if (isUserInAnyChannel(fd))
-	{
-		//TODO: implémenter une fonction qui enverra les msg du user dans ses channels
-	}*/
-
-
 }
 
 void Server::handleConnections()

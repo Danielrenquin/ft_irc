@@ -7,7 +7,7 @@
 #include <utility>
 
 template<typename T>
-class unorderedSet 
+class unordered_set 
 {
     private:
         std::list<T> order;   // garde l'ordre d'insertion

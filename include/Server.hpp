@@ -41,6 +41,7 @@ class Server
 		std::map<int, ClientContext> _contexts;
 		std::map<int, Channel> _channelList;
         std::vector<pollfd> _pfds;
+		std::map<int, std::string> _clientBuffers;
 		CommandHandler *_commandHandler;
     public:
         Server(int port);
@@ -58,7 +59,9 @@ class Server
         void startListening(); // accepte les connexions entrantes
 
         void addClient(int fd);
-        void removeClient();
+        void removeClient(int fd);
+		void handleDisconected(int fd, int nbytes);
+		bool cmdIsComplete(int fd, std::string &cmd);
         void handleClientData();
         void handleConnections();
 		void acceptNewClient();
@@ -76,7 +79,7 @@ class Server
 
 		void registerClient(int fd, ClientContext &ctx, Client &cl);
 
-		// CMD
+		//authentification
 		void cmdPass(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdUser(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
 		void cmdNick(int fd, std::istringstream &iss, ClientContext &ctx, Client &cl);
