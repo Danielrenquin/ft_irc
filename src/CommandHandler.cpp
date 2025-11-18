@@ -109,15 +109,17 @@ void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std
     std::map<int, Channel>& channels = _server->getChannelList();
 
     if(channelName[0] == '#' || channelName[0] == '$')
-        channelName = channelName.substr(1);
-    int channelId = _server->getChannelIdByName(channelName);
-    Channel &channel = channels[channelId];
-    unordered_set<int> userList = channel.getUserList();
-
-    for (unordered_set<int>::iterator it = userList.begin(); it != userList.end(); ++it)
     {
-        int userFd = *it;
-        clients[userFd].sendMessage(msg);
+        //channelName = channelName.substr(1);
+        int channelId = _server->getChannelIdByName(channelName);
+        Channel &channel = channels[channelId];
+        unordered_set<int> userList = channel.getUserList();
+
+        for (unordered_set<int>::iterator it = userList.begin(); it != userList.end(); ++it)
+        {
+            int userFd = *it;
+            clients[userFd].sendMessage(msg);
+        }
     }
 }
 
@@ -129,6 +131,14 @@ int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, s
 
     if (!_server->isUserAlreadyInChannel(fd, targetId))
     {
+        if(ch.checkMode('i'))
+        {
+            if(!ch.checkInvitedUser(fd))
+            {
+                ErrorHandler::inviteOnlyChan(cl, ch.getName());
+                return(-1);
+            }
+        }
         if(!ch.getPassword().empty())
         {
             if(password == ch.getPassword())
@@ -218,7 +228,7 @@ void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         _channelList[id] = passList.empty()
             ? Channel(id, channel, fd, fd)
             : Channel(id, channel, pass, fd, fd);
-
+        
         Channel &ch = _channelList[id];
         ch.addOperator(fd);
         ch.addUser(fd);
@@ -318,7 +328,10 @@ void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data
 
             int targetFd = _server->getClientFdByNickname(data.users[j]);
             if (targetFd > 0)
+            {
                 channelList[channelId].removeUser(targetFd);
+                channelList[channelId].removeInvitedUser(targetFd);
+            }
         }
     }
 }
@@ -347,7 +360,10 @@ void CommandHandler::kickMultiChannelsOneUser(int fd, Client& cl, kickData& data
 
             int targetFd = _server->getClientFdByNickname(user);
             if (targetFd > 0)
+            {
                 channelList[channelId].removeUser(targetFd);
+                channelList[channelId].removeInvitedUser(targetFd);
+            }
         }
     }
 }
@@ -376,7 +392,10 @@ void CommandHandler::kickChannelsUsersPair(int fd, Client& cl, kickData& data)
 
             int targetFd = _server->getClientFdByNickname(user);
             if (targetFd > 0)
+            {
                 channelList[channelId].removeUser(targetFd);
+                channelList[channelId].removeInvitedUser(targetFd);
+            }
         }
     }
 }
@@ -874,10 +893,13 @@ void CommandHandler::cmdModesAddingSets(std::pair<unordered_set<char>, unordered
     for (unordered_set<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
 	{
         ch->addMode(*it);
+        std::cout << "mode ajouté: " << *it << std::endl;
 	}
     for (unordered_set<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
 	{
         ch->removeMode(*it);
+        std::cout << "mode retier: " << *it << std::endl;
+
 	}
 }
 
@@ -921,9 +943,9 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
     if (channelId < 0)
         return ;
     Channel *ch = _server->getChannelById(channelId);
-	if (_server->isUserOperator(fd, channelId))
+	if (!_server->isUserOperator(fd, channelId))
 	{
-		// ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL
+		std::cout << "ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL" << std::endl;
 		return ;
 	}
 	
@@ -941,27 +963,25 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 		iss >> userTarget;
 		if (userTarget.empty())
 		{
-			// ERROR USER EMPTY
+			std::cout << "ERROR USER EMPTYS" << std::endl;
 			return ;
 		}
 		int targetFd = _server->getClientFdByNickname(userTarget);
 		if (targetFd < 0)
 		{
-			// ERROR NO SUCH USER
+			std::cout << "ERROR NO SUCH USER" << std::endl;
 			return ;
 		}
 		if (_server->isUserAlreadyInChannel(targetFd, channelId) == false)
 		{
-			// ERROR TARGET USER NOT IN CHANNEL
+			std::cout << "ERROR TARGET USER NOT IN CHANNEL" << std::endl;
 			return ;
 		}
 		if (_server->isUserOperator(targetFd, channelId))
 		{
-			// EEROR ?? TARGET USER ALREADY OPERATOR
+			std::cout << "EROR ?? TARGET USER ALREADY OPERATOR" << std::endl;
 			return ;
 		}
         nbrUserRequired--;
 	}
-	
-
 }

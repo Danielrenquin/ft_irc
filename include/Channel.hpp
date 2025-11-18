@@ -39,6 +39,8 @@ class Channel
 		void removeUser(int fd);
 		void addMode(int mode);
 		void removeMode(int mode);
+		bool checkMode(int mode);
+		bool checkInvitedUser(int invitedUser);
 
 		void inviteUser(int fd);
 		void removeInvitedUser(int fd);
