@@ -821,17 +821,16 @@ char skipMultipleSign(std::string &strModes, int &i)
 	return (sign);
 }
 
-std::pair<unordered_set<char>, unordered_set<char> > CommandHandler::cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch)
+std::pair<std::vector<char>, std::vector<char> > CommandHandler::cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch)
 {
-    // Replace by unorderedset
-	unordered_set<char> modesToAdd;
-	unordered_set<char> modesToRemove;
+	std::vector<char> modesToAdd;
+	std::vector<char> modesToRemove;
 	
 
 	if (strModes[0] != '+' && strModes[0] != '-')
 	{
 		// ERROR PREFIX
-		return (std::pair<unordered_set<char>, unordered_set<char> > ());
+		return (std::pair<std::vector<char>, std::vector<char> > ());
 	}
 	
     char currentSign = strModes[0];
@@ -847,68 +846,257 @@ std::pair<unordered_set<char>, unordered_set<char> > CommandHandler::cmdModesPar
         }
 
         if (currentSign == '+')
-            modesToAdd.insert(c);
+            modesToAdd.push_back(c);
         else
-            modesToRemove.insert(c);
+            modesToRemove.push_back(c);
     }
 		
     // Debug 
     std::cout << "Modes à ajouter : ";
-    for (unordered_set<char>::iterator it = modesToAdd.begin(); it != modesToAdd.end(); ++it)
+    for (std::vector<char>::iterator it = modesToAdd.begin(); it != modesToAdd.end(); ++it)
 	{
         std::cout << *it << " ";
 	}
     std::cout << "\nModes à retirer : ";
-    for (unordered_set<char>::iterator it = modesToRemove.begin(); it != modesToRemove.end(); ++it)
+    for (std::vector<char>::iterator it = modesToRemove.begin(); it != modesToRemove.end(); ++it)
 	{
         std::cout << *it << " ";
 	}
     std::cout << std::endl;
 	
-	return (std::pair<unordered_set<char>, unordered_set<char> >(modesToAdd, modesToRemove));
+	return (std::pair<std::vector<char>, std::vector<char> >(modesToAdd, modesToRemove));
 }
 // first -> modeToAdd 
 // second -> modeToRemove
-void CommandHandler::cmdModesAddingSets(std::pair<unordered_set<char>, unordered_set<char> > modes, Channel *ch)
+void CommandHandler::cmdModesAddingSets(std::pair<std::vector<char>, std::vector<char> > modes, Channel *ch)
 {
-    for (unordered_set<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
-	{
-        ch->addMode(*it);
-	}
-    for (unordered_set<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
-	{
-        ch->removeMode(*it);
-	}
-}
-
-char cmdModesWhichFirst(std::pair<std::vector<char>, std::vector<char> > modes)
-{
-	int l_index = 0;
-	int o_index = 0;
-
     for (std::vector<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
 	{
-        if (*it == 'l')
+		if (*it != 'o')
 		{
-			break ;
+			continue ;
 		}
-		l_index++;
-	}
-	for (std::vector<char>::iterator it = modes.first.begin(); it != modes.first.end(); ++it)
-	{
-        if (*it == 'o')
+		else if (*it == 'l' && ch->isModeAlreadyInSet(*it))
 		{
-			break ;
+			continue ;
 		}
-		o_index++;
+		ch->addMode(*it);
+		
 	}
     for (std::vector<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
 	{
-
+		if (*it != 'o')
+		{
+			ch->removeMode(*it);
+		}
+		
 	}
 }
 
+std::vector<char> cmdModeOrderModes(std::vector<char> set, std::string setToParse)
+{
+	std::vector<char> parsedSet;
+
+	if (setToParse == "add")
+	{
+		for (std::vector<char>::iterator it = set.begin(); it != set.end(); ++it)
+		{
+			if (*it == 'o' || *it == 'l')
+			{
+				parsedSet.push_back(*it);
+			}
+		}
+	}
+	else if (setToParse == "remove")
+	{
+		for (std::vector<char>::iterator it = set.begin(); it != set.end(); ++it)
+		{
+			if (*it == 'o')
+			{
+				parsedSet.push_back(*it);
+			}
+		}
+	}
+
+	return (parsedSet);
+}
+
 //TODO: Execution + parsing des modes 'o' 'l'
+/*void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
+{
+	std::string channelTarget;
+	std::string strModes;
+	std::string userTarget;
+	int nbrUserRequired = 0;
+
+
+	int channelId = parsingChannelId(iss, cl, channelTarget, "MODE");
+    if (channelId < 0)
+        return ;
+    Channel *ch = _server->getChannelById(channelId);
+	if (_server->isUserOperator(fd, channelId))
+	{
+		// ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL
+		return ;
+	}
+	
+	iss >> strModes;
+	if (cmdModesPreParsing(fd, strModes, cl, nbrUserRequired) == -1)
+		return ;
+	std::pair<std::vector<char>, std::vector<char> > modes(cmdModesParsingSets(fd, strModes, cl, ch));
+	if (modes.first.empty() && modes.second.empty())
+		return ;
+	
+	cmdModesAddingSets(modes, ch);
+
+	// Ordonner les inputs utilisateurs des modes afin de les parser dans l'ordre
+	std::vector<char> parsedSetModes;
+	std::vector<char> addedMode = cmdModeOrderModes(modes.first, "add");
+	std::vector<char> removedMode = cmdModeOrderModes(modes.second, "remove");
+
+	//parsedSetModes.reserve(addedMode.size() + removedMode.size());
+	//std::copy(addedMode.begin(), addedMode.end(), std::back_inserter(parsedSetModes));
+	//std::copy(removedMode.begin(), removedMode.end(), std::back_inserter(parsedSetModes));
+
+
+	// Parsing tageted user
+	for (std::vector<char>::iterator it = addedMode.begin(); it != addedMode.end() ; ++it)
+	{
+		char mode = *it;
+		if (mode == 'l')
+		{
+			// parse et fixe la limite
+		}
+		else if (mode == 'o')
+		{
+			iss >> userTarget;
+			if (userTarget.empty())
+			{
+				// ERROR USER EMPTY
+				return ;
+			}
+			int targetFd = _server->getClientFdByNickname(userTarget);
+			if (targetFd < 0)
+			{
+				// ERROR NO SUCH USER
+				return ;
+			}
+			if (_server->isUserAlreadyInChannel(targetFd, channelId) == false)
+			{
+				// ERROR TARGET USER NOT IN CHANNEL
+				return ;
+			}
+			if (_server->isUserOperator(targetFd, channelId))
+			{
+				// ERROR ?? TARGET USER ALREADY OPERATOR
+				return ;
+			}
+			// add user
+		}
+	}
+}*/
+
+std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const std::string& modes)
+{
+    std::vector<ParsedMode> result;
+
+    if (modes.empty())
+        return (result);
+
+    char currentSign = 0;
+    size_t i = 0;
+
+    if (modes[i] == '+' || modes[i] == '-')
+    {
+        currentSign = modes[i];
+        i++;
+    }
+    else
+    {
+        // ERROR: no sign
+        return (result);
+    }
+
+    // Boucle sur chaque caractère du string MODE
+    for (i; i < modes.size(); ++i)
+    {
+        char c = modes[i];
+
+        if (c == '+' || c == '-')
+        {
+            currentSign = c;
+            continue ;
+        }
+
+        // Sinon c'est une lettre de mode
+        ParsedMode pm;
+        pm.sign = currentSign;
+        pm.mode = c;
+
+        result.push_back(pm);
+    }
+
+    return (result);
+}
+
+int CommandHandler::cmdModeParseAndExecuteOps(int fd, std::string &userTarget, int channelId, char sign,  Client &cl)
+{
+	if (userTarget.empty())
+	{
+		// ERROR 461 (Not enough parameters)
+		return (-1);
+	}
+
+	int targetFd = _server->getClientFdByNickname(userTarget);
+
+	if (targetFd < 0)
+	{
+		// ERROR: No such nick
+		return (-1);
+	}
+
+	if (!_server->isUserAlreadyInChannel(targetFd, channelId))
+	{
+		// ERROR: user not in channel
+		return (-1);
+	}
+
+	if (sign == '+')
+	{
+		// add op
+	}
+	else
+	{
+		// remove op
+	}
+	return (0);
+}
+
+int CommandHandler::cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss, char sign, Channel *ch, Client &cl)
+{
+	if (sign == '+')
+	{
+		int limit;
+		iss >> limit;
+
+		// Si l'user ne précise pas la limite "iss >> limit" -> fail
+		if (iss.fail())
+		{
+			// ERROR: missing limit
+			return (-1);
+		}
+
+		//ch->setLimit(limit);
+	}
+	else
+	{
+		//ch->removeLimit();
+	}
+
+	return (0);
+}
+
+// TODO: Testing, mettre les erreurs, ajouter ch->setLimit() et ch->removeLimit() a la classe channel
 void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 {
 	std::string channelTarget;
@@ -930,38 +1118,34 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 	iss >> strModes;
 	if (cmdModesPreParsing(fd, strModes, cl, nbrUserRequired) == -1)
 		return ;
-	std::pair<unordered_set<char>, unordered_set<char> > modes(cmdModesParsingSets(fd, strModes, cl, ch));
-	if (modes.first.empty() && modes.second.empty())
-		return ;
-	
-	cmdModesAddingSets(modes, ch);
-	// Parsing tageted user
-	while (nbrUserRequired > 0)
-	{
-		iss >> userTarget;
-		if (userTarget.empty())
-		{
-			// ERROR USER EMPTY
-			return ;
-		}
-		int targetFd = _server->getClientFdByNickname(userTarget);
-		if (targetFd < 0)
-		{
-			// ERROR NO SUCH USER
-			return ;
-		}
-		if (_server->isUserAlreadyInChannel(targetFd, channelId) == false)
-		{
-			// ERROR TARGET USER NOT IN CHANNEL
-			return ;
-		}
-		if (_server->isUserOperator(targetFd, channelId))
-		{
-			// EEROR ?? TARGET USER ALREADY OPERATOR
-			return ;
-		}
-        nbrUserRequired--;
-	}
-	
 
+	std::vector<ParsedMode> parsed = parseModeString(strModes);
+
+	// Parsing & execution des modes
+	for (size_t i = 0; i < parsed.size(); ++i)
+	{
+		char sign = parsed[i].sign;
+		char mode = parsed[i].mode;
+
+		if (mode == 'o')
+		{
+			iss >> userTarget;
+			if (cmdModeParseAndExecuteOps(fd, userTarget, channelId, sign, cl) == -1)
+				return ;
+		}
+		else if (mode == 'l')
+		{
+			if (cmdModeParseAndExecuteLimit(fd, iss, sign, ch, cl) == -1)
+				return ;
+		}
+		else
+		{
+			// Modes classique
+			if (sign == '+')
+				ch->addMode(mode);
+			else
+				ch->removeMode(mode);
+		}
+	}
 }
+

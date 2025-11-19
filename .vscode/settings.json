@@ -57,6 +57,7 @@
 		"text_encoding": "cpp",
 		"cinttypes": "cpp",
 		"variant": "cpp",
-		"set": "cpp"
+		"set": "cpp",
+		"list": "cpp"
 	}
 }

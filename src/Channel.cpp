@@ -171,3 +171,16 @@ void Channel::sendMessageAvoidingSender(const std::string &msg, int senderFd) co
         }
     }
 }
+
+bool Channel::isModeAlreadyInSet(int mode) const
+{
+    for (std::set<int>::const_iterator it = _modes.begin(); it != _modes.end(); ++it)
+    {
+        if (*it == mode)
+        {
+            return (true);
+        }
+    }
+
+    return (false);
+}

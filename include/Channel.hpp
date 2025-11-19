@@ -33,6 +33,7 @@ class Channel
 		void setTopic(std::string topic);
 		
 		bool isOperator(int fd) const;
+		bool isModeAlreadyInSet(int mode) const;
 		void addOperator(int fd);
 		void removeOperator(int fd);
 		void addUser(int fd);

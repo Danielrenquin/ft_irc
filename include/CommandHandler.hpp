@@ -24,6 +24,12 @@ class CommandHandler
         typedef void(CommandHandler::*CommandFunc)(int fd, std::istringstream& iss, Client& cl);
         std::map<std::string, CommandFunc> _commands;
 
+		struct ParsedMode
+		{
+			char sign;
+			char mode;
+		};
+
         //fonction utilitaire
         void BroadcastToChannel(std::string channelName, Client &cl, std::string msg);
 
@@ -49,9 +55,12 @@ class CommandHandler
         int cmdTopicParsingTopicSubjet(int fd, int chanId, Client &cl, Channel *ch, std::string &topic, std::string &channelTarget);
         int parsingChannelId(std::istringstream &iss, Client &cl, std::string &channelTarget, std::string command);
         void cmdTopic(int fd, std::istringstream &iss, Client &cl);
-		void cmdModesAddingSets(std::pair<unordered_set<char>, unordered_set<char> > modes, Channel *ch);
-		std::pair<unordered_set<char>, unordered_set<char> > cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch);
+		std::vector<ParsedMode> parseModeString(const std::string &modes);
+		void cmdModesAddingSets(std::pair<std::vector<char>, std::vector<char> > modes, Channel *ch);
+		std::pair<std::vector<char>, std::vector<char> > cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch);
 		int cmdModesPreParsing(int fd, std::string &strModes, Client &cl, int &nbrUserRequired);
+		int cmdModeParseAndExecuteOps(int fd, std::string &userTarget, int channelId, char sign,  Client &cl);
+		int cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss, char sign, Channel *ch, Client &cl);
 		void cmdModes(int fd, std::istringstream &iss, Client &cl);
 
         //messagerie
