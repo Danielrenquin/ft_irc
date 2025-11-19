@@ -139,18 +139,21 @@ int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, s
                 return(-1);
             }
         }
-        if(!ch.getPassword().empty())
+        if(ch.checkMode('k'))
         {
-            if(password == ch.getPassword())
+            if(!ch.getPassword().empty())
             {
-                ch.sendMessage(formattedMsg);
-                ch.addUser(fd);
-                return (0);
-            }
-            else
-            {
-                ErrorHandler::badChannelKey(cl, ch.getName());
-                return(-1);
+                if(password == ch.getPassword())
+                {
+                    ch.sendMessage(formattedMsg);
+                    ch.addUser(fd);
+                    return (0);
+                }
+                else
+                {
+                    ErrorHandler::badChannelKey(cl, ch.getName());
+                    return(-1);
+                }
             }
         }
         ch.sendMessage(formattedMsg);
@@ -228,7 +231,7 @@ void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         _channelList[id] = passList.empty()
             ? Channel(id, channel, fd, fd)
             : Channel(id, channel, pass, fd, fd);
-        
+
         Channel &ch = _channelList[id];
         ch.addOperator(fd);
         ch.addUser(fd);
