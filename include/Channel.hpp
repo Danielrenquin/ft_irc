@@ -14,6 +14,8 @@ class Channel
 		std::set<int> _invitedUser;
 		unordered_set<int> _userSet;
 		std::set<int> _modes;
+		bool _hasLimit;
+    	int  _limit;
 	public:
 		Channel();
 		Channel(int id, std::string name, int newOperatorFd, int newUserFd);
@@ -30,6 +32,7 @@ class Channel
 		const std::set<int>&getOperators() const;
 		const std::set<int>&getModes() const;
 		const std::string getTopic() const;
+		
 		void setTopic(std::string topic);
 		
 		bool isOperator(int fd) const;
@@ -40,6 +43,10 @@ class Channel
 		void removeUser(int fd);
 		void addMode(int mode);
 		void removeMode(int mode);
+		void setLimit(int limit);
+		void removeLimit();
+		bool hasLimit() const;
+		int  getLimit() const;
 
 		void inviteUser(int fd);
 		void removeInvitedUser(int fd);

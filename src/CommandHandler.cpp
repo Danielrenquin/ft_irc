@@ -771,19 +771,21 @@ static int countChar(std::string s, char c)
 }
 
 
-int CommandHandler::cmdModesPreParsing(int fd, std::string &strModes, Client &cl, int &nbrUserRequired)
+int CommandHandler::cmdModesPreParsing(int fd, std::string &strModes, Client &cl)
 {
 	if (strModes.empty())
 	{
 		// ERROR mode empty
+		ErrorHandler::notEnoughParameters(cl, "MODE");
 		return (-1);
 	}
 	if (strModes.find_first_not_of("+-itkol") != std::string::npos)
 	{
 		// ERROR char incorrect
+		ErrorHandler::unknownMode(cl, strModes);
 		return (-1);
 	}
-	if (countChar(strModes, 'o') > 3)
+	/*if (countChar(strModes, 'o') > 3)
 	{
 		// ERROR too many char
 		return (-1);
@@ -798,7 +800,7 @@ int CommandHandler::cmdModesPreParsing(int fd, std::string &strModes, Client &cl
                 nbrUserRequired++;
             }
 		}
-	}
+	}*/
 	return (0);
 }
 
@@ -920,83 +922,8 @@ std::vector<char> cmdModeOrderModes(std::vector<char> set, std::string setToPars
 
 	return (parsedSet);
 }
-
-//TODO: Execution + parsing des modes 'o' 'l'
-/*void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
-{
-	std::string channelTarget;
-	std::string strModes;
-	std::string userTarget;
-	int nbrUserRequired = 0;
-
-
-	int channelId = parsingChannelId(iss, cl, channelTarget, "MODE");
-    if (channelId < 0)
-        return ;
-    Channel *ch = _server->getChannelById(channelId);
-	if (_server->isUserOperator(fd, channelId))
-	{
-		// ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL
-		return ;
-	}
-	
-	iss >> strModes;
-	if (cmdModesPreParsing(fd, strModes, cl, nbrUserRequired) == -1)
-		return ;
-	std::pair<std::vector<char>, std::vector<char> > modes(cmdModesParsingSets(fd, strModes, cl, ch));
-	if (modes.first.empty() && modes.second.empty())
-		return ;
-	
-	cmdModesAddingSets(modes, ch);
-
-	// Ordonner les inputs utilisateurs des modes afin de les parser dans l'ordre
-	std::vector<char> parsedSetModes;
-	std::vector<char> addedMode = cmdModeOrderModes(modes.first, "add");
-	std::vector<char> removedMode = cmdModeOrderModes(modes.second, "remove");
-
-	//parsedSetModes.reserve(addedMode.size() + removedMode.size());
-	//std::copy(addedMode.begin(), addedMode.end(), std::back_inserter(parsedSetModes));
-	//std::copy(removedMode.begin(), removedMode.end(), std::back_inserter(parsedSetModes));
-
-
-	// Parsing tageted user
-	for (std::vector<char>::iterator it = addedMode.begin(); it != addedMode.end() ; ++it)
-	{
-		char mode = *it;
-		if (mode == 'l')
-		{
-			// parse et fixe la limite
-		}
-		else if (mode == 'o')
-		{
-			iss >> userTarget;
-			if (userTarget.empty())
-			{
-				// ERROR USER EMPTY
-				return ;
-			}
-			int targetFd = _server->getClientFdByNickname(userTarget);
-			if (targetFd < 0)
-			{
-				// ERROR NO SUCH USER
-				return ;
-			}
-			if (_server->isUserAlreadyInChannel(targetFd, channelId) == false)
-			{
-				// ERROR TARGET USER NOT IN CHANNEL
-				return ;
-			}
-			if (_server->isUserOperator(targetFd, channelId))
-			{
-				// ERROR ?? TARGET USER ALREADY OPERATOR
-				return ;
-			}
-			// add user
-		}
-	}
-}*/
-
-std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const std::string& modes)
+/**/
+std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const std::string& modes, Client &cl)
 {
     std::vector<ParsedMode> result;
 
@@ -1014,7 +941,8 @@ std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const st
     else
     {
         // ERROR: no sign
-        return (result);
+		ErrorHandler::notEnoughParameters(cl, "MODE");
+        return (std::vector<ParsedMode>());
     }
 
     // Boucle sur chaque caractère du string MODE
@@ -1039,11 +967,11 @@ std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const st
     return (result);
 }
 
-int CommandHandler::cmdModeParseAndExecuteOps(int fd, std::string &userTarget, int channelId, char sign,  Client &cl)
+int CommandHandler::cmdModeParseAndExecuteOps(int fd, std::string &userTarget, Channel *ch, char sign,  Client &cl)
 {
 	if (userTarget.empty())
 	{
-		// ERROR 461 (Not enough parameters)
+		ErrorHandler::notEnoughParameters(cl, "MODE");
 		return (-1);
 	}
 
@@ -1051,23 +979,24 @@ int CommandHandler::cmdModeParseAndExecuteOps(int fd, std::string &userTarget, i
 
 	if (targetFd < 0)
 	{
-		// ERROR: No such nick
+		ErrorHandler::noSuchNick(cl, userTarget);
 		return (-1);
 	}
 
-	if (!_server->isUserAlreadyInChannel(targetFd, channelId))
+	if (!_server->isUserAlreadyInChannel(targetFd, ch->getId()))
 	{
 		// ERROR: user not in channel
+		//ErrorHandler::notOnChannel(cl, ch->getName());
+		cl.sendMessage("442 " + ch->getName() + " " + userTarget + " :Not on that channel");
 		return (-1);
 	}
-
 	if (sign == '+')
 	{
-		// add op
+		ch->addOperator(targetFd);
 	}
 	else
 	{
-		// remove op
+		ch->removeOperator(targetFd);
 	}
 	return (0);
 }
@@ -1083,14 +1012,22 @@ int CommandHandler::cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss,
 		if (iss.fail())
 		{
 			// ERROR: missing limit
+			cl.sendMessage("472 :Invalid channel limit");
+			// Si fail nettoyer le streal
+			iss.clear();
 			return (-1);
 		}
 
-		//ch->setLimit(limit);
+        if (limit <= 0)
+        {
+            cl.sendMessage("472 :Invalid channel limit");
+            return (-1);
+        }
+		ch->setLimit(limit);
 	}
 	else
 	{
-		//ch->removeLimit();
+		ch->removeLimit();
 	}
 
 	return (0);
@@ -1102,24 +1039,27 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 	std::string channelTarget;
 	std::string strModes;
 	std::string userTarget;
-	int nbrUserRequired = 0;
+	int opsCount = 0;
 
 
 	int channelId = parsingChannelId(iss, cl, channelTarget, "MODE");
     if (channelId < 0)
         return ;
     Channel *ch = _server->getChannelById(channelId);
-	if (_server->isUserOperator(fd, channelId))
+	if (_server->isUserOperator(fd, channelId) == false)
 	{
 		// ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL
+		ErrorHandler::notChannelOperator(cl, channelTarget);
 		return ;
 	}
 	
 	iss >> strModes;
-	if (cmdModesPreParsing(fd, strModes, cl, nbrUserRequired) == -1)
+	if (cmdModesPreParsing(fd, strModes, cl) == -1)
 		return ;
 
-	std::vector<ParsedMode> parsed = parseModeString(strModes);
+	std::vector<ParsedMode> parsed = parseModeString(strModes, cl);
+	if (parsed.empty())
+		return ;
 
 	// Parsing & execution des modes
 	for (size_t i = 0; i < parsed.size(); ++i)
@@ -1129,8 +1069,14 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 
 		if (mode == 'o')
 		{
+			if (opsCount >= 3)
+			{
+				// Le serveur ignore simplement ce mode au bout de 3 '0' rencontré
+				continue ;
+			}
+			opsCount++;
 			iss >> userTarget;
-			if (cmdModeParseAndExecuteOps(fd, userTarget, channelId, sign, cl) == -1)
+			if (cmdModeParseAndExecuteOps(fd, userTarget, ch, sign, cl) == -1)
 				return ;
 		}
 		else if (mode == 'l')

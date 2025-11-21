@@ -184,3 +184,25 @@ bool Channel::isModeAlreadyInSet(int mode) const
 
     return (false);
 }
+
+bool Channel::hasLimit() const 
+{ 
+	return (_hasLimit); 
+}
+
+int  Channel::getLimit() const 
+{ 
+	return (_limit); 
+}
+
+void Channel::setLimit(int limit)
+{
+    _hasLimit = true;
+    _limit = limit;
+}
+
+void Channel::removeLimit()
+{
+    _hasLimit = false;
+    _limit = 0;
+}
