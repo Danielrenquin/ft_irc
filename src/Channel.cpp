@@ -7,6 +7,7 @@ Channel::Channel()
 
 Channel::Channel(int id, std::string name, int newOperatorFd, int newUserFd)
 {
+    std::cout << "make object with 4 arguments" << std::endl;
     _id = id;
     _name = name;
     _operators.insert(newOperatorFd);
@@ -15,11 +16,14 @@ Channel::Channel(int id, std::string name, int newOperatorFd, int newUserFd)
 
 Channel::Channel(int id, std::string name, std::string password, int newOperatorFd, int newUserFd)
 {
+    std::cout << "make object with 5 arguments" << std::endl;
     _id = id;
     _name = name;
     _password = password;
     _operators.insert(newOperatorFd);
     _userSet.insert(newUserFd);
+    if(!_password.empty())
+        _modes.insert('k');
 }
 
 Channel::~Channel()
@@ -45,6 +49,7 @@ Channel& Channel::operator=(const Channel &other)
         _password = other._password;
         _operators = other._operators;
         _userSet = other._userSet;
+        _modes = other._modes;
     }
     return (*this);
 }
