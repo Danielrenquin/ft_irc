@@ -47,6 +47,8 @@ class Channel
 		void removeLimit();
 		bool hasLimit() const;
 		int  getLimit() const;
+		bool checkMode(int mode);
+		bool checkInvitedUser(int invitedUser);
 
 		void inviteUser(int fd);
 		void removeInvitedUser(int fd);

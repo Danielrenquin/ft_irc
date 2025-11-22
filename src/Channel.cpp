@@ -99,6 +99,16 @@ void Channel::removeMode(int mode)
     _modes.erase(mode);
 }
 
+bool Channel::checkMode(int mode)
+{
+    return _modes.find(mode) != _modes.end();
+}
+
+bool Channel::checkInvitedUser(int invitedUser)
+{
+    return _invitedUser.find(invitedUser) != _invitedUser.end();
+}
+
 void Channel::inviteUser(int fd)
 {
     _invitedUser.insert(fd);

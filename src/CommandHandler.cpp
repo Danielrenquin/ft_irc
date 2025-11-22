@@ -109,15 +109,17 @@ void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std
     std::map<int, Channel>& channels = _server->getChannelList();
 
     if(channelName[0] == '#' || channelName[0] == '$')
-        channelName = channelName.substr(1);
-    int channelId = _server->getChannelIdByName(channelName);
-    Channel &channel = channels[channelId];
-    unordered_set<int> userList = channel.getUserList();
-
-    for (unordered_set<int>::iterator it = userList.begin(); it != userList.end(); ++it)
     {
-        int userFd = *it;
-        clients[userFd].sendMessage(msg);
+        //channelName = channelName.substr(1);
+        int channelId = _server->getChannelIdByName(channelName);
+        Channel &channel = channels[channelId];
+        unordered_set<int> userList = channel.getUserList();
+
+        for (unordered_set<int>::iterator it = userList.begin(); it != userList.end(); ++it)
+        {
+            int userFd = *it;
+            clients[userFd].sendMessage(msg);
+        }
     }
 }
 
@@ -129,6 +131,14 @@ int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, s
 
     if (!_server->isUserAlreadyInChannel(fd, targetId))
     {
+        if(ch.checkMode('i'))
+        {
+            if(!ch.checkInvitedUser(fd))
+            {
+                ErrorHandler::inviteOnlyChan(cl, ch.getName());
+                return(-1);
+            }
+        }
         if(!ch.getPassword().empty())
         {
             if(password == ch.getPassword())
@@ -218,7 +228,7 @@ void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         _channelList[id] = passList.empty()
             ? Channel(id, channel, fd, fd)
             : Channel(id, channel, pass, fd, fd);
-
+        
         Channel &ch = _channelList[id];
         ch.addOperator(fd);
         ch.addUser(fd);
@@ -318,7 +328,10 @@ void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data
 
             int targetFd = _server->getClientFdByNickname(data.users[j]);
             if (targetFd > 0)
+            {
                 channelList[channelId].removeUser(targetFd);
+                channelList[channelId].removeInvitedUser(targetFd);
+            }
         }
     }
 }
@@ -347,7 +360,10 @@ void CommandHandler::kickMultiChannelsOneUser(int fd, Client& cl, kickData& data
 
             int targetFd = _server->getClientFdByNickname(user);
             if (targetFd > 0)
+            {
                 channelList[channelId].removeUser(targetFd);
+                channelList[channelId].removeInvitedUser(targetFd);
+            }
         }
     }
 }
@@ -376,7 +392,10 @@ void CommandHandler::kickChannelsUsersPair(int fd, Client& cl, kickData& data)
 
             int targetFd = _server->getClientFdByNickname(user);
             if (targetFd > 0)
+            {
                 channelList[channelId].removeUser(targetFd);
+                channelList[channelId].removeInvitedUser(targetFd);
+            }
         }
     }
 }
@@ -1049,7 +1068,6 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 	if (_server->isUserOperator(fd, channelId) == false)
 	{
 		// ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL
-		ErrorHandler::notChannelOperator(cl, channelTarget);
 		return ;
 	}
 	
