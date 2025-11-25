@@ -221,3 +221,23 @@ void Channel::removeLimit()
     _hasLimit = false;
     _limit = 0;
 }
+
+void Channel::setKey(const std::string& k)
+{
+    _password = k;
+    _modes.insert('k');
+}
+
+void Channel::removeKey()
+{
+    _password.clear();
+    _modes.erase('k');
+}
+
+bool Channel::hasMode(char mode) const
+{
+	if (_modes.find(mode) != _modes.end())
+		return (true);
+	else
+		return (false);
+}

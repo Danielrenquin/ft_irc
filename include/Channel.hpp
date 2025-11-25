@@ -32,7 +32,8 @@ class Channel
 		const std::set<int>&getOperators() const;
 		const std::set<int>&getModes() const;
 		const std::string getTopic() const;
-		
+		void setKey(const std::string& k);
+		void removeKey();
 		void setTopic(std::string topic);
 		
 		bool isOperator(int fd) const;
@@ -45,6 +46,7 @@ class Channel
 		void removeMode(int mode);
 		void setLimit(int limit);
 		void removeLimit();
+		bool hasMode(char mode) const;
 		bool hasLimit() const;
 		int  getLimit() const;
 		bool checkMode(int mode);

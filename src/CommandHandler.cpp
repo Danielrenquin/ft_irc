@@ -122,7 +122,7 @@ void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std
         }
     }
 }
-
+//TODO: Implémenter le check de la limite 'l' ici :
 int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password)
 {
     std::map<int, Channel>& channelList = _server->getChannelList();
@@ -475,38 +475,45 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
         return ;
 
     // Check channel exists
-    int targetId = _server->getChannelIdByName(chanName);
-    if (targetId != -1)
-    {
-        if (_server->isUserAlreadyInChannel(_server->getClientFdByNickname(userName), targetId) == true)
-        {
-            ErrorHandler::userOnChannel(cl, userName, chanName);
-            return ;
-        }
-        if (_server->isUserAlreadyInChannel(fd, targetId) == true && _server->isUserOperator(fd, targetId) == true)
-        {
-            Channel *ch = _server->getChannelById(targetId);
-            Client *targetCl = _server->getClientByFd(_server->getClientFdByNickname(userName));
-            std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + chanName;
-            targetCl->sendMessage(formattedMsg);
-            ch->inviteUser(_server->getClientFdByNickname(userName));
-        }
-        else if (_server->isUserOperator(fd, targetId) == false)
-        {
-            ErrorHandler::notChannelOperator(cl, chanName);
-            return ;
-        }
-        else
-        {
-            ErrorHandler::notOnChannel(cl, chanName);
-            return ;
-        }
-    }
-    else
+    int chanId = _server->getChannelIdByName(chanName);
+    if (chanId < 0)
     {
         ErrorHandler::noSuchChannel(cl, chanName);
         return ;
     }
+
+    Channel* ch = _server->getChannelById(chanId);
+    int targetFd = _server->getClientFdByNickname(userName);
+
+    if (!_server->isUserAlreadyInChannel(fd, chanId))
+    {
+        ErrorHandler::notOnChannel(cl, chanName);
+        return ; 
+    }
+
+    if (_server->isUserAlreadyInChannel(targetFd, chanId))
+    {
+        ErrorHandler::userOnChannel(cl, userName, chanName);
+        return ;
+    }
+
+    // Si +i -> INVITE peut etre utilisé uniquement par les ops
+    if (ch->hasMode('i') && !_server->isUserOperator(fd, chanId))
+    {
+        ErrorHandler::notChannelOperator(cl, chanName);
+        return ;
+    }
+
+    Client* targetCl = _server->getClientByFd(targetFd);
+
+    // Message IRC standard envoyé à la cible
+    std::string inviteMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " INVITE " + userName + " :" + chanName;
+    targetCl->sendMessage(inviteMsg);
+
+    ch->inviteUser(targetFd);
+
+    std::string confirmMsg = "341 " + cl.getNickname() + " " + userName + " " + chanName;
+    cl.sendMessage(confirmMsg);
 
     // DEBUG
     /*for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
@@ -1055,6 +1062,28 @@ int CommandHandler::cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss,
 	return (0);
 }
 
+int CommandHandler::cmdModeParseAndExecutePass(std::istringstream &iss, char sign, Channel *ch, Client &cl)
+{
+    std::string key;
+
+    if (sign == '+')
+    {
+        iss >> key;
+        if (key.empty())
+        {
+            ErrorHandler::needMoreParams(cl, "MODE +k");
+            return (-1);
+        }
+        ch->setKey(key);
+    }
+    else
+    {
+        ch->removeKey();
+    }
+
+	return (0);
+}
+
 // TODO: Testing, mettre les erreurs, ajouter ch->setLimit() et ch->removeLimit() a la classe channel
 void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 {
@@ -1071,6 +1100,7 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 	if (_server->isUserOperator(fd, channelId) == false)
 	{
 		// ERROR USER USING COMMAND NOT OPERATOR OF THE CHANNEL
+		ErrorHandler::notChannelOperator(cl, ch->getName());
 		return ;
 	}
 	
@@ -1105,6 +1135,11 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 			if (cmdModeParseAndExecuteLimit(fd, iss, sign, ch, cl) == -1)
 				return ;
 		}
+		else if (mode == 'k')
+		{
+			if (cmdModeParseAndExecutePass(iss, sign, ch, cl) == -1)
+				return ;
+		}
 		else
 		{
 			// Modes classique
@@ -1115,4 +1150,17 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 		}
 	}
 }
+
+// code compilable et stable
+
+// TODO: -Testing de la commande INVITE
+//			n'importe quel utilisateur peut inviter des nouveaux user dans le channel si 'i' n'est pas présent dans les modes,
+//			si 'i' est présent dans ce cas uniquement les opérateurs du channel sont censé pouvoir les inviter.
+//
+//		 -Testing de la commande MODE avec l'argument '+k' et/ou '-k'
+//			'k' est censé etre utilisé avec un argument après de la meme manière que 'l' ou 'o',
+//			il est censé remplacer le mot de passe actuel par celui fourni en argument ou ajouter un mdp si le channel n'en a pas.
+//
+//		 -Implémenter le mode 'l' dans la commande JOIN
+//			voir ligne 125
 

@@ -61,6 +61,7 @@ class CommandHandler
 		int cmdModesPreParsing(int fd, std::string &strModes, Client &cl);
 		int cmdModeParseAndExecuteOps(int fd, std::string &userTarget, Channel *ch, char sign,  Client &cl);
 		int cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss, char sign, Channel *ch, Client &cl);
+		int cmdModeParseAndExecutePass(std::istringstream &iss, char sign, Channel *ch, Client &cl);
 		void cmdModes(int fd, std::istringstream &iss, Client &cl);
 
         //messagerie
