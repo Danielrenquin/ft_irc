@@ -127,8 +127,13 @@ int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, s
 {
     std::map<int, Channel>& channelList = _server->getChannelList();
     Channel &ch = channelList[targetId];
-	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + ch.getName();
+	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + ch.getName();  
 
+    if(ch.checkMode('l') && (ch.getUserCount() >= ch.getLimit()))
+    {
+        ErrorHandler::channelIsFull(cl, ch.getName());
+        return(-1);
+    }
     if (!_server->isUserAlreadyInChannel(fd, targetId))
     {
         if(ch.checkMode('i'))
@@ -948,10 +953,9 @@ std::vector<char> cmdModeOrderModes(std::vector<char> set, std::string setToPars
 			}
 		}
 	}
-
 	return (parsedSet);
 }
-/**/
+
 std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const std::string& modes, Client &cl)
 {
     std::vector<ParsedMode> result;
@@ -1053,12 +1057,15 @@ int CommandHandler::cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss,
             return (-1);
         }
 		ch->setLimit(limit);
+        if(!ch->isModeAlreadyInSet('l'))
+            ch->addMode('l');
 	}
 	else
 	{
 		ch->removeLimit();
+        if(ch->isModeAlreadyInSet('l'))
+            ch->removeMode('l');
 	}
-
 	return (0);
 }
 

@@ -210,6 +210,11 @@ int  Channel::getLimit() const
 	return (_limit); 
 }
 
+int Channel::getUserCount() const
+{
+    return _userSet.size();
+}
+
 void Channel::setLimit(int limit)
 {
     _hasLimit = true;

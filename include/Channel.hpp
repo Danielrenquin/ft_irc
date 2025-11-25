@@ -49,6 +49,7 @@ class Channel
 		bool hasMode(char mode) const;
 		bool hasLimit() const;
 		int  getLimit() const;
+		int  getUserCount() const;
 		bool checkMode(int mode);
 		bool checkInvitedUser(int invitedUser);
 
