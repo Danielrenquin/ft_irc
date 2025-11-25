@@ -225,9 +225,7 @@ void CommandHandler::cmdJoin(int fd, std::istringstream &iss, Client &cl)
         int targetId = _server->getChannelIdByName(channel);
         if(targetId != -1)
         {
-            //a réfléchir en cas de out of range avec la cmd join
-            //std::string password = (i < passList.size()) ? passList[i] : "";
-            std::string password = passList.empty() ? "" : passList[i];
+            std::string password = (i < passList.size()) ? passList[i] : "";
             if(cmdJoinAnExistingChannel(fd, cl, targetId, password) == -1)
                 return ;
             continue ;

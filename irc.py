@@ -11,7 +11,7 @@ import os
 # Configuration
 PORT = "6667"
 PASSWORD = "42"
-SERVER_CMD = f"./ircserv {PORT} {PASSWORD}"
+SERVER_CMD = f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./ircserv {PORT} {PASSWORD}"
 
 # Commandes pour les clients (avec délais entre chaque commande)
 CLIENT1_COMMANDS = [
