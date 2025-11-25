@@ -54,6 +54,20 @@ void printChannelMap(const std::map<K, V>& channels, const std::string& title = 
             }
         }
         std::cout << std::endl;
+
+		// --- Affichage des modes ---
+		const std::set<int>& modes = channel.getModes();
+		std::cout << "  modes (" << modes.size() << "): ";
+		if (modes.empty())
+			std::cout << "(none)";
+		else
+		{
+			for (std::set<int>::const_iterator mIt = modes.begin(); mIt != modes.end(); ++mIt)
+			{
+				std::cout << (char)*mIt << " ";
+			}
+		}
+		std::cout << std::endl;
     }
 
     std::cout << "======================" << std::endl;
@@ -817,6 +831,13 @@ int CommandHandler::cmdModesPreParsing(int fd, std::string &strModes, Client &cl
 		ErrorHandler::unknownMode(cl, strModes);
 		return (-1);
 	}
+	if (!(strModes.find_first_of("itkol") != std::string::npos))
+	{
+		// ERROR only '+' or '-' in str
+		ErrorHandler::notEnoughParameters(cl, "MODE");
+		return (-1);
+	}
+	
 	/*if (countChar(strModes, 'o') > 3)
 	{
 		// ERROR too many char
@@ -1155,17 +1176,3 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 		}
 	}
 }
-
-// code compilable et stable
-
-// TODO: -Testing de la commande INVITE
-//			n'importe quel utilisateur peut inviter des nouveaux user dans le channel si 'i' n'est pas présent dans les modes,
-//			si 'i' est présent dans ce cas uniquement les opérateurs du channel sont censé pouvoir les inviter.
-//
-//		 -Testing de la commande MODE avec l'argument '+k' et/ou '-k'
-//			'k' est censé etre utilisé avec un argument après de la meme manière que 'l' ou 'o',
-//			il est censé remplacer le mot de passe actuel par celui fourni en argument ou ajouter un mdp si le channel n'en a pas.
-//
-//		 -Implémenter le mode 'l' dans la commande JOIN
-//			voir ligne 125
-
