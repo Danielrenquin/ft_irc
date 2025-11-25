@@ -129,7 +129,7 @@ int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, s
     Channel &ch = channelList[targetId];
 	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + ch.getName();  
 
-    if(ch.checkMode('l') && (ch.getUserCount() >= ch.getLimit()))
+    if(ch.checkMode('l') && (ch.getUserCount() <= ch.getLimit()))
     {
         ErrorHandler::channelIsFull(cl, ch.getName());
         return(-1);
