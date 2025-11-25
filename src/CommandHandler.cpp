@@ -268,12 +268,12 @@ std::vector<std::string> &users, std::string &reason)
 bool CommandHandler::checkInKick(std::string channelName, std::string targetNick,
 Client& cl, std::string cmd, int fd)
 {
-    if(channelName[0] != '#' && channelName[0] != '$')
+    if(channelName[0] != '#' && channelName[0] != '&' &&
+        channelName[0] != '+' && channelName[0] != '!')
     {
         ErrorHandler::ERR_BADCHANMASK(cl, channelName);
         return (false);
     }
-    //std::string nameWithoutHash = channelName.substr(1);
     int channelId = _server->getChannelIdByName(channelName);
     if(channelId == -1)
     {
