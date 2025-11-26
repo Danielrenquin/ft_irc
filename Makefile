@@ -5,7 +5,7 @@
 NAME		= ircserv
 
 CXX			= c++
-CXXFLAGS	= -std=c++98 #-Wall -Wextra -Werror 
+CXXFLAGS	= -std=c++98 -Wall -Wextra -Werror
 RM			= rm -rf
 
 # **************************************************************************** #
@@ -26,12 +26,6 @@ SRCS		= $(SRC_DIR)/main.cpp \
 			  $(SRC_DIR)/Channel.cpp \
 			  $(SRC_DIR)/ErrorHandler.cpp \
 			  $(SRC_DIR)/CommandHandler.cpp \
-			  $(SRC_DIR)/commands/auth.cpp \
-			  $(SRC_DIR)/commands/channel.cpp \
-			  $(SRC_DIR)/commands/message.cpp \
-			  $(SRC_DIR)/commands/operator.cpp \
-			  $(SRC_DIR)/utils/parsing.cpp \
-			  $(SRC_DIR)/utils/validation.cpp \
 
 # **************************************************************************** #
 #                                 OBJECT FILES                                 #
@@ -50,7 +44,6 @@ HEADERS		= $(INC_DIR)/Server.hpp \
 			  $(INC_DIR)/Channel.hpp \
 			  $(INC_DIR)/CommandHandler.hpp \
 			  $(INC_DIR)/ErrorHandler.hpp \
-			  $(INC_DIR)/utils.hpp \
 			  $(INC_DIR)/unorderedset.hpp
 
 # **************************************************************************** #

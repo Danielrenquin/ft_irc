@@ -4,76 +4,6 @@
 #include "ErrorHandler.hpp"
 #include <iostream>
 
-/*-------------Debug--------------------*/
-
-#include "map"
-#include "set"
-
-
-template <typename K, typename V>
-void printChannelMap(const std::map<K, V>& channels, const std::string& title = "Channels list")
-{
-    std::cout << "\n=== " << title << " ===" << std::endl;
-
-    if (channels.empty())
-    {
-        std::cout << "(empty)" << std::endl;
-        std::cout << "======================" << std::endl;
-        return;
-    }
-
-    // Parcours de tous les channels
-    for (typename std::map<K, V>::const_iterator it = channels.begin(); it != channels.end(); ++it)
-    {
-        const V& channel = it->second;
-
-        std::cout << "\nChannel ID: " << it->first<< " | Name: " << channel.getName() << std::endl;
-
-        // --- Affichage des opérateurs ---
-        const std::set<int>& operators = channel.getOperators();
-        std::cout << "  Operators (" << operators.size() << "): ";
-        if (operators.empty())
-            std::cout << "(none)";
-        else
-        {
-            for (std::set<int>::const_iterator opIt = operators.begin(); opIt != operators.end(); ++opIt)
-                std::cout << *opIt << " ";
-        }
-        std::cout << std::endl;
-
-        // --- Affichage des utilisateurs ---
-       const unordered_set<int>& users = channel.getUserList();
-        std::cout << "  Users (" << users.size() << "): ";
-        if (users.empty())
-            std::cout << "(none)";
-        else
-        {
-            for (unordered_set<int>::const_iterator uIt = users.begin(); uIt != users.end(); ++uIt)
-            {
-                std::cout << *uIt << " ";
-            }
-        }
-        std::cout << std::endl;
-
-		// --- Affichage des modes ---
-		const std::set<int>& modes = channel.getModes();
-		std::cout << "  modes (" << modes.size() << "): ";
-		if (modes.empty())
-			std::cout << "(none)";
-		else
-		{
-			for (std::set<int>::const_iterator mIt = modes.begin(); mIt != modes.end(); ++mIt)
-			{
-				std::cout << (char)*mIt << " ";
-			}
-		}
-		std::cout << std::endl;
-    }
-
-    std::cout << "======================" << std::endl;
-}
-
-/*------------------------------------------*/
 
 CommandHandler::CommandHandler(Server* server)
 {
@@ -82,7 +12,7 @@ CommandHandler::CommandHandler(Server* server)
 
 void CommandHandler::registerCommands()
 {
-    _commands["JOIN"] = &CommandHandler::cmdJoin; //JOIN #salon avec cette commande le channel s' appel #salon et pas salon
+    _commands["JOIN"] = &CommandHandler::cmdJoin;
     _commands["KICK"] = &CommandHandler::cmdkick;
     _commands["PRIVMSG"] = &CommandHandler::cmdPrivMsg;
     _commands["QUIT"] = &CommandHandler::cmdQuit;
@@ -102,11 +32,6 @@ void CommandHandler::executeCommand(const std::string& cmdLine, int fd, Client& 
     std::cout << cmd << std::endl;
     std::map<std::string, CommandFunc>::iterator it = _commands.find(cmd);
 
-    if(cmdLine == "DEBUG")
-    {
-        std::map<int, Channel>& _channelList = _server->getChannelList();
-        printChannelMap(_channelList, "Debug");
-    }
     if(it != _commands.end())
     {
         (this->*(it->second))(fd, iss, cl);
@@ -117,14 +42,13 @@ void CommandHandler::executeCommand(const std::string& cmdLine, int fd, Client& 
     }
 }
 
-void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std::string msg)
+void CommandHandler::BroadcastToChannel(std::string channelName, std::string msg)
 {
     std::map<int, Client>& clients = _server->getClients();
     std::map<int, Channel>& channels = _server->getChannelList();
 
     if(channelName[0] == '#' || channelName[0] == '$')
     {
-        //channelName = channelName.substr(1);
         int channelId = _server->getChannelIdByName(channelName);
         Channel &channel = channels[channelId];
         unordered_set<int> userList = channel.getUserList();
@@ -136,12 +60,12 @@ void CommandHandler::BroadcastToChannel(std::string channelName, Client &cl, std
         }
     }
 }
-//TODO: Implémenter le check de la limite 'l' ici :
+
 int CommandHandler::cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password)
 {
     std::map<int, Channel>& channelList = _server->getChannelList();
     Channel &ch = channelList[targetId];
-	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + ch.getName();  
+	std::string formattedMsg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " JOIN " + " :" + ch.getName();
 
     if(ch.checkMode('l') && (ch.getUserCount() <= ch.getLimit()))
     {
@@ -280,7 +204,7 @@ std::vector<std::string> &users, std::string &reason)
 }
 
 bool CommandHandler::checkInKick(std::string channelName, std::string targetNick,
-Client& cl, std::string cmd, int fd)
+Client& cl, int fd)
 {
     if(channelName[0] != '#' && channelName[0] != '&' &&
         channelName[0] != '+' && channelName[0] != '!')
@@ -330,7 +254,6 @@ void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data
 {
     std::map<int, Channel>& channelList = _server->getChannelList();
     std::string chan = data.channels[0];
-    //std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
 
     int channelId = _server->getChannelIdByName(chan);
     if (channelId == -1)
@@ -341,10 +264,10 @@ void CommandHandler::kickOneChannelMultiUsers(int fd, Client& cl, kickData& data
 
     for (size_t j = 0; j < data.users.size(); ++j)
     {
-        if (checkInKick(chan, data.users[j], cl, data.cmd, fd))
+        if (checkInKick(chan, data.users[j], cl, fd))
         {
             std::string msg = msgKick(data.reason, cl, chan, data.users[j]);
-            BroadcastToChannel(chan, cl, msg);
+            BroadcastToChannel(chan, msg);
 
             int targetFd = _server->getClientFdByNickname(data.users[j]);
             if (targetFd > 0)
@@ -364,7 +287,6 @@ void CommandHandler::kickMultiChannelsOneUser(int fd, Client& cl, kickData& data
     for (size_t i = 0; i < data.channels.size(); ++i)
     {
         std::string chan = data.channels[i];
-        //std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
 
         int channelId = _server->getChannelIdByName(chan);
         if (channelId == -1)
@@ -372,11 +294,10 @@ void CommandHandler::kickMultiChannelsOneUser(int fd, Client& cl, kickData& data
             ErrorHandler::noSuchChannel(cl, chan);
             continue ;
         }
-
-        if (checkInKick(chan, user, cl, data.cmd, fd))
+        if (checkInKick(chan, user, cl, fd))
         {
             std::string msg = msgKick(data.reason, cl, chan, user);
-            BroadcastToChannel(chan, cl, msg);
+            BroadcastToChannel(chan, msg);
 
             int targetFd = _server->getClientFdByNickname(user);
             if (targetFd > 0)
@@ -396,7 +317,6 @@ void CommandHandler::kickChannelsUsersPair(int fd, Client& cl, kickData& data)
     {
         std::string chan = data.channels[i];
         std::string user = data.users[i];
-        //std::string nameWithoutHash = (chan[0] == '#' || chan[0] == '$') ? chan.substr(1) : chan;
 
         int channelId = _server->getChannelIdByName(chan);
         if (channelId == -1)
@@ -405,10 +325,10 @@ void CommandHandler::kickChannelsUsersPair(int fd, Client& cl, kickData& data)
             continue ;
         }
 
-        if (checkInKick(chan, user, cl, data.cmd, fd))
+        if (checkInKick(chan, user, cl, fd))
         {
             std::string msg = msgKick(data.reason, cl, chan, user);
-            BroadcastToChannel(chan, cl, msg);
+            BroadcastToChannel(chan, msg);
 
             int targetFd = _server->getClientFdByNickname(user);
             if (targetFd > 0)
@@ -458,7 +378,7 @@ std::pair<std::vector<std::string>, std::vector<std::string> > CommandHandler::f
 
 	// split keys
 	std::vector<std::string> nameList;
-	if (!nameToken.empty()) 
+	if (!nameToken.empty())
 	{
 		std::stringstream nameStream(nameToken);
 		std::string name;
@@ -468,7 +388,7 @@ std::pair<std::vector<std::string>, std::vector<std::string> > CommandHandler::f
 	return (std::pair<std::vector<std::string>, std::vector<std::string> > (channelList, nameList));
 }
 
-const int CommandHandler::checkCmdInvite(std::string chanName, std::string userName, Client &cl)
+int CommandHandler::checkCmdInvite(std::string userName, Client &cl)
 {
     if (userName.empty() || _server->getClientFdByNickname(userName) == -1)
     {
@@ -488,7 +408,7 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
 	iss >> userName;
 	iss >> chanName;
 
-    if (checkCmdInvite(chanName, userName, cl) == -1)
+    if (checkCmdInvite(userName, cl) == -1)
         return ;
 
     // Check channel exists
@@ -505,15 +425,13 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
     if (!_server->isUserAlreadyInChannel(fd, chanId))
     {
         ErrorHandler::notOnChannel(cl, chanName);
-        return ; 
+        return ;
     }
-
     if (_server->isUserAlreadyInChannel(targetFd, chanId))
     {
         ErrorHandler::userOnChannel(cl, userName, chanName);
         return ;
     }
-
     // Si +i -> INVITE peut etre utilisé uniquement par les ops
     if (ch->hasMode('i') && !_server->isUserOperator(fd, chanId))
     {
@@ -531,12 +449,6 @@ void CommandHandler::cmdInvite(int fd, std::istringstream &iss, Client &cl)
 
     std::string confirmMsg = "341 " + cl.getNickname() + " " + userName + " " + chanName;
     cl.sendMessage(confirmMsg);
-
-    // DEBUG
-    /*for (std::set<int>::iterator it = ch.getUserList().begin(); it != ch.getUserList().end(); ++it)
-    {
-        std::cout << "user set: " << *it << std::endl;
-    }*/
 }
 
 std::vector<std::string> CommandHandler::parsePrivMsg(std::istringstream &iss,
@@ -572,13 +484,13 @@ std::vector<std::string> CommandHandler::parsePrivMsg(std::istringstream &iss,
     return(targets);
 }
 
-    std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client &cl, std::vector<std::string> &targets)
-    {
-        std::vector<WhichTarget> whichTarget;
+std::vector<CommandHandler::WhichTarget> CommandHandler::validatePrivMsg(Client &cl, std::vector<std::string> &targets)
+{
+    std::vector<WhichTarget> whichTarget;
 
-	for (size_t i = 0; i < targets.size(); i++) 
+	for (size_t i = 0; i < targets.size(); i++)
 	{
-		if (targets[i].empty()) 
+		if (targets[i].empty())
 		{
 			ErrorHandler::noRecipient(cl, cl.getNickname());
 			return (std::vector<CommandHandler::WhichTarget> ());
@@ -644,6 +556,7 @@ void CommandHandler::cmdPrivMsg(int fd, std::istringstream &iss, Client &cl)
     std::vector<CommandHandler::WhichTarget> whichTarget;
     std::string userMsg;
     std::string target;
+    (void)fd;
 
     // Parsing des cibles
     targets = parsePrivMsg(iss, cl, userMsg);
@@ -670,7 +583,7 @@ int CommandHandler::parsingChannelId(std::istringstream &iss, Client &cl, std::s
 
     // Check si le channel target est un channel valide
     int chanId = _server->getChannelIdByName(channelTarget);
-    if (chanId < 0) 
+    if (chanId < 0)
     {
         ErrorHandler::noSuchChannel(cl, channelTarget);
         return (-1);
@@ -682,14 +595,14 @@ int CommandHandler::cmdTopicParsingTopicSubjet(int fd, int chanId, Client &cl, C
 {
     if (!topic.empty() && topic[0] == ' ')
         topic.erase(0, 1);
-        
-    if (!_server->isUserAlreadyInChannel(fd, chanId)) 
+
+    if (!_server->isUserAlreadyInChannel(fd, chanId))
     {
         ErrorHandler::notOnChannel(cl, channelTarget);
         return (-1);
     }
-    
-    if (topic.empty()) 
+
+    if (topic.empty())
     {
         if (ch->getTopic().empty())
             ErrorHandler::noTopicSet(cl, channelTarget);
@@ -704,7 +617,7 @@ void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
 {
     std::string channelTarget;
     std::string topic;
-    
+
     int chanId = parsingChannelId(iss, cl, channelTarget, "TOPIC");
     if (chanId < 0)
         return ;
@@ -724,10 +637,10 @@ void CommandHandler::cmdTopic(int fd, std::istringstream &iss, Client &cl)
             return ;
         }
     }
-    
+
     if (!topic.empty() && topic[0] == ':')
         topic.erase(0, 1);
-    
+
     ch->setTopic(topic);
     std::string msg = ":" + cl.getNickname() + "!" + cl.getUsername() + "@" + cl.getHostname() + " TOPIC " + channelTarget + " :" + topic;
     ch->sendMessage(msg);
@@ -751,7 +664,7 @@ std::string CommandHandler::parsequit(std::istringstream &iss, Client &cl)
     return formattedMsg;
 }
 
-void CommandHandler::removeFromChannels(int fd, Client &cl, const std::string& quitMsg)
+void CommandHandler::removeFromChannels(int fd, const std::string& quitMsg)
 {
     std::map<int, Channel>& ChannelList = _server->getChannelList();
     std::vector<int> channelsToErase;
@@ -795,29 +708,11 @@ void CommandHandler::cmdQuit(int fd, std::istringstream &iss, Client &cl)
 {
     std::string quitMsg;
     quitMsg = parsequit(iss, cl);
-    removeFromChannels(fd, cl, quitMsg);
+    removeFromChannels(fd, quitMsg);
     _server->removeClient(fd);
 }
 
-
-static int countChar(std::string s, char c) 
-{
-	int count = 0;
-
-	if (s.empty())
-		return (0);
-
-	for (int i = 0; i < (int)s.size(); i++)
-	{
-		if (s[i] == c) 
-			count++;
-	}
-
-	return (count);
-}
-
-
-int CommandHandler::cmdModesPreParsing(int fd, std::string &strModes, Client &cl)
+int CommandHandler::cmdModesPreParsing(std::string &strModes, Client &cl)
 {
 	if (strModes.empty())
 	{
@@ -837,23 +732,6 @@ int CommandHandler::cmdModesPreParsing(int fd, std::string &strModes, Client &cl
 		ErrorHandler::notEnoughParameters(cl, "MODE");
 		return (-1);
 	}
-	
-	/*if (countChar(strModes, 'o') > 3)
-	{
-		// ERROR too many char
-		return (-1);
-	}
-	int pos = strModes.find_last_of('o');
-	if (pos != std::string::npos)
-	{
-		for (int i = pos; i > 0; i--)
-		{
-            if (strModes[i] == 'o')
-            {
-                nbrUserRequired++;
-            }
-		}
-	}*/
 	return (0);
 }
 
@@ -876,18 +754,18 @@ char skipMultipleSign(std::string &strModes, int &i)
 	return (sign);
 }
 
-std::pair<std::vector<char>, std::vector<char> > CommandHandler::cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch)
+std::pair<std::vector<char>, std::vector<char> > CommandHandler::cmdModesParsingSets(std::string &strModes)
 {
 	std::vector<char> modesToAdd;
 	std::vector<char> modesToRemove;
-	
+
 
 	if (strModes[0] != '+' && strModes[0] != '-')
 	{
 		// ERROR PREFIX
 		return (std::pair<std::vector<char>, std::vector<char> > ());
 	}
-	
+
     char currentSign = strModes[0];
 
     for (int i = 1; i < (int)strModes.size(); ++i)
@@ -905,8 +783,8 @@ std::pair<std::vector<char>, std::vector<char> > CommandHandler::cmdModesParsing
         else
             modesToRemove.push_back(c);
     }
-		
-    // Debug 
+
+    // Debug
     std::cout << "Modes à ajouter : ";
     for (std::vector<char>::iterator it = modesToAdd.begin(); it != modesToAdd.end(); ++it)
 	{
@@ -918,10 +796,10 @@ std::pair<std::vector<char>, std::vector<char> > CommandHandler::cmdModesParsing
         std::cout << *it << " ";
 	}
     std::cout << std::endl;
-	
+
 	return (std::pair<std::vector<char>, std::vector<char> >(modesToAdd, modesToRemove));
 }
-// first -> modeToAdd 
+// first -> modeToAdd
 // second -> modeToRemove
 void CommandHandler::cmdModesAddingSets(std::pair<std::vector<char>, std::vector<char> > modes, Channel *ch)
 {
@@ -936,7 +814,7 @@ void CommandHandler::cmdModesAddingSets(std::pair<std::vector<char>, std::vector
 			continue ;
 		}
 		ch->addMode(*it);
-		
+
 	}
     for (std::vector<char>::iterator it = modes.second.begin(); it != modes.second.end(); ++it)
 	{
@@ -944,7 +822,7 @@ void CommandHandler::cmdModesAddingSets(std::pair<std::vector<char>, std::vector
 		{
 			ch->removeMode(*it);
 		}
-		
+
 	}
 }
 
@@ -998,7 +876,7 @@ std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const st
     }
 
     // Boucle sur chaque caractère du string MODE
-    for (i; i < modes.size(); ++i)
+    for (; i < modes.size(); ++i)
     {
         char c = modes[i];
 
@@ -1015,11 +893,10 @@ std::vector<CommandHandler::ParsedMode> CommandHandler::parseModeString(const st
 
         result.push_back(pm);
     }
-
     return (result);
 }
 
-int CommandHandler::cmdModeParseAndExecuteOps(int fd, std::string &userTarget, Channel *ch, char sign,  Client &cl)
+int CommandHandler::cmdModeParseAndExecuteOps(std::string &userTarget, Channel *ch, char sign,  Client &cl)
 {
 	if (userTarget.empty())
 	{
@@ -1034,11 +911,8 @@ int CommandHandler::cmdModeParseAndExecuteOps(int fd, std::string &userTarget, C
 		ErrorHandler::noSuchNick(cl, userTarget);
 		return (-1);
 	}
-
 	if (!_server->isUserAlreadyInChannel(targetFd, ch->getId()))
 	{
-		// ERROR: user not in channel
-		//ErrorHandler::notOnChannel(cl, ch->getName());
 		cl.sendMessage("442 " + ch->getName() + " " + userTarget + " :Not on that channel");
 		return (-1);
 	}
@@ -1053,7 +927,7 @@ int CommandHandler::cmdModeParseAndExecuteOps(int fd, std::string &userTarget, C
 	return (0);
 }
 
-int CommandHandler::cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss, char sign, Channel *ch, Client &cl)
+int CommandHandler::cmdModeParseAndExecuteLimit(std::istringstream &iss, char sign, Channel *ch, Client &cl)
 {
 	if (sign == '+')
 	{
@@ -1129,9 +1003,9 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 		ErrorHandler::notChannelOperator(cl, ch->getName());
 		return ;
 	}
-	
+
 	iss >> strModes;
-	if (cmdModesPreParsing(fd, strModes, cl) == -1)
+	if (cmdModesPreParsing(strModes, cl) == -1)
 		return ;
 
 	std::vector<ParsedMode> parsed = parseModeString(strModes, cl);
@@ -1153,12 +1027,12 @@ void CommandHandler::cmdModes(int fd, std::istringstream &iss, Client &cl)
 			}
 			opsCount++;
 			iss >> userTarget;
-			if (cmdModeParseAndExecuteOps(fd, userTarget, ch, sign, cl) == -1)
+			if (cmdModeParseAndExecuteOps(userTarget, ch, sign, cl) == -1)
 				return ;
 		}
 		else if (mode == 'l')
 		{
-			if (cmdModeParseAndExecuteLimit(fd, iss, sign, ch, cl) == -1)
+			if (cmdModeParseAndExecuteLimit(iss, sign, ch, cl) == -1)
 				return ;
 		}
 		else if (mode == 'k')

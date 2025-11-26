@@ -59,7 +59,7 @@ const std::string Channel::getName() const
     return (_name);
 }
 
-const unordered_set<int>& Channel::getUserList() const 
+const unordered_set<int>& Channel::getUserList() const
 {
     return _userSet;
 }
@@ -74,7 +74,7 @@ const std::string Channel::getPassword() const
     return (_password);
 }
 
-const int Channel::getId() const
+int Channel::getId() const
 {
 	return (_id);
 }
@@ -200,14 +200,14 @@ bool Channel::isModeAlreadyInSet(int mode) const
     return (false);
 }
 
-bool Channel::hasLimit() const 
-{ 
-	return (_hasLimit); 
+bool Channel::hasLimit() const
+{
+	return (_hasLimit);
 }
 
-int  Channel::getLimit() const 
-{ 
-	return (_limit); 
+int  Channel::getLimit() const
+{
+	return (_limit);
 }
 
 int Channel::getUserCount() const

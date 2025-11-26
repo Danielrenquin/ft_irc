@@ -160,7 +160,7 @@ void Server::acceptNewClient()
     std::cout << "New client connected [fd=" << clientFd << "]" << std::endl;
 }
 
-const int Server::getChannelIdByName(std::string &channelName)
+int Server::getChannelIdByName(std::string &channelName)
 {
 	for (std::map<int, Channel>::iterator it = _channelList.begin(); it != _channelList.end(); it++)
 	{
@@ -265,7 +265,7 @@ bool Server::isUserAlreadyInChannel(int fd, int targetId)
 	return (false);
 }
 
-const int Server::getClientFdByNickname(std::string nickname)
+int Server::getClientFdByNickname(std::string nickname)
 {
 	// Itérer une map
 	for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); it++)
@@ -431,7 +431,7 @@ void Server::handleClientData()
         Client &cl = _clients[fd];
         ClientContext &ctx = _contexts[fd];
 
-        // Gestion de l'authentification ou execution de commande 
+        // Gestion de l'authentification ou execution de commande
         if (command == "PASS")
             cmdPass(fd, iss, ctx, cl);
         else if (command == "NICK")

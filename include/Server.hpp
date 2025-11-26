@@ -21,9 +21,7 @@
 #include "Client.hpp"
 
 #define PENDING_QUEUE_MAXLENGTH 10
-#define MSG_SIZE 512 // a verifier dans le protocole irc ?
-
-//test a réaliser ipv6 et ipv4 normalement ok ?
+#define MSG_SIZE 512
 
 class Client;
 class Channel;
@@ -35,7 +33,7 @@ class Server
     private:
         int _port;
         int _serverSocket;
-		size_t _pfdsIndex; // Index principale de la première boucle for
+		size_t _pfdsIndex;
 		char *_password;
         std::map<int, Client> _clients;
 		std::map<int, ClientContext> _contexts;
@@ -55,8 +53,8 @@ class Server
 			AUTHENTICATED
 		};
 
-        void initSocket(char **argv); // création + bind via getaddrinfo
-        void startListening(); // accepte les connexions entrantes
+        void initSocket(char **argv);
+        void startListening();
 
         void addClient(int fd);
         void removeClient(int fd);
@@ -70,8 +68,8 @@ class Server
 		// Getter & Setter
 		void setPassword(char *password);
 		Client *getClientByFd(int channelId);
-		const int getClientFdByNickname(std::string nickname);
-		const int getChannelIdByName(std::string &channelName);
+		int getClientFdByNickname(std::string nickname);
+		int getChannelIdByName(std::string &channelName);
 		Channel *getChannelById(int channelId);
 		std::map<int, Channel>& getChannelList();
 		std::map<int, Client>& getClients();

@@ -31,11 +31,11 @@ class CommandHandler
 		};
 
         //fonction utilitaire
-        void BroadcastToChannel(std::string channelName, Client &cl, std::string msg);
+        void BroadcastToChannel(std::string channelName, std::string msg);
 
         //gestion de channels
         std::pair<std::vector<std::string>, std::vector<std::string> > fillListCmdInvite(std::istringstream &iss);
-        const int checkCmdInvite(std::string chanName, std::string userName, Client &cl);
+        int checkCmdInvite(std::string userName, Client &cl);
         void cmdInvite(int fd, std::istringstream &iss, Client &cl);
 
         int cmdJoinAnExistingChannel(int fd, Client &cl, int targetId, std::string password);
@@ -48,7 +48,7 @@ class CommandHandler
         void parseKick(std::istringstream &iss, std::vector<std::string> &channels,
         std::vector<std::string> &users, std::string &reason);
         bool checkInKick(std::string channelName, std::string targetNick,
-        Client& cl, std::string cmd, int fd);
+        Client& cl, int fd);
         std::string msgKick(std::string reason, Client &cl, std::string Channel,
             std::string user);
         void cmdkick(int fd, std::istringstream &iss, Client &cl);
@@ -57,10 +57,10 @@ class CommandHandler
         void cmdTopic(int fd, std::istringstream &iss, Client &cl);
 		std::vector<ParsedMode> parseModeString(const std::string &modes, Client &cl);
 		void cmdModesAddingSets(std::pair<std::vector<char>, std::vector<char> > modes, Channel *ch);
-		std::pair<std::vector<char>, std::vector<char> > cmdModesParsingSets(int fd, std::string &strModes, Client &cl, Channel *ch);
-		int cmdModesPreParsing(int fd, std::string &strModes, Client &cl);
-		int cmdModeParseAndExecuteOps(int fd, std::string &userTarget, Channel *ch, char sign,  Client &cl);
-		int cmdModeParseAndExecuteLimit(int fd, std::istringstream &iss, char sign, Channel *ch, Client &cl);
+		std::pair<std::vector<char>, std::vector<char> > cmdModesParsingSets(std::string &strModes);
+		int cmdModesPreParsing(std::string &strModes, Client &cl);
+		int cmdModeParseAndExecuteOps(std::string &userTarget, Channel *ch, char sign,  Client &cl);
+		int cmdModeParseAndExecuteLimit(std::istringstream &iss, char sign, Channel *ch, Client &cl);
 		int cmdModeParseAndExecutePass(std::istringstream &iss, char sign, Channel *ch, Client &cl);
 		void cmdModes(int fd, std::istringstream &iss, Client &cl);
 
@@ -80,7 +80,7 @@ class CommandHandler
 
         //quit
         std::string parsequit(std::istringstream &iss, Client &cl);
-        void removeFromChannels(int fd, Client &cl, const std::string& quitMsg);
+        void removeFromChannels(int fd, const std::string& quitMsg);
         void cmdQuit(int fd, std::istringstream &iss, Client &cl);
 
     public:

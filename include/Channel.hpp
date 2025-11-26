@@ -27,7 +27,7 @@ class Channel
 		// Getters et setters
 		const std::string getName() const;
 		const std::string getPassword() const;
-		const int getId() const;
+		int getId() const;
 		const unordered_set<int>& getUserList() const;
 		const std::set<int>&getOperators() const;
 		const std::set<int>&getModes() const;
@@ -35,7 +35,7 @@ class Channel
 		void setKey(const std::string& k);
 		void removeKey();
 		void setTopic(std::string topic);
-		
+
 		bool isOperator(int fd) const;
 		bool isModeAlreadyInSet(int mode) const;
 		void addOperator(int fd);
