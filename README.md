@@ -122,7 +122,7 @@ Typical sic sequence:
 | `KICK <#channel> <nick> [:<reason>]`       | Operator: remove a user from a channel                 |
 | `INVITE <nick> <#channel>`                 | Operator: invite a user (needed when mode `+i` is set) |
 | `TOPIC <#channel> [:<topic>]`              | View or set the topic (restricted if mode `+t`)        |
-| `MODE <#channel> {[+                       | -]itkol} [params]`                                     |
+| `MODE <#channel> {[+-]itkol} [params]`     | Operator: change the channel modes                     |
 
 
 
