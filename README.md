@@ -13,7 +13,7 @@ The project follows the 42 *ft_irc* subject: a single-process server, non-blocki
 - Non-blocking file descriptors (`fcntl` may only be used with `F_SETFL` and `O_NONBLOCK`)
 - A single `poll()` (or equivalent) for all I/O: listen, read and write
 - No `fork()`
-- Compatible with a real IRC client (for example Irssi)
+- Compatible with a real IRC client (for example SIC)
 - Authentication with the server password
 - Channels, operators, and the mandatory operator commands
 - Partial IRC compatibility with RFC 1459 / RFC 2812 (numeric replies)
@@ -58,10 +58,20 @@ Example:
 ./ircserv 6667 42
 ```
 
-Then connect with Irssi, HexChat, or netcat:
+For testing purpose we used netcat:
 
 ```bash
 nc localhost 6667
+```
+
+For connection we used the sic IRC client:
+
+```bash
+cd sic/ && make
+```
+
+```bash
+./sic -h localhost -p 6667
 ```
 
 A helper script `script.sh` can open the server and three netcat clients in separate terminals (default port `6667`, password `42`). Compile first with `make`.
@@ -78,12 +88,12 @@ A client must complete registration before using channel commands:
 | `USER <username> 0 * :<realname>` | Set identity and finish registration                 |
 
 
-Typical netcat sequence:
+Typical sic sequence:
 
 ```
-PASS 42
-NICK alice
-USER alice 0 * :Alice
+:PASS 42
+:NICK axel
+:USER axel 0 * :Axel
 ```
 
 
@@ -135,11 +145,11 @@ Examples:
 JOIN #general
 PRIVMSG #general :hello
 MODE #general +i
-INVITE bob #general
+INVITE yohan #general
 MODE #general +k secret
 MODE #general +l 10
 TOPIC #general :welcome
-KICK #general bob :spam
+KICK #general yohan :spam
 ```
 
 
@@ -151,6 +161,7 @@ include/     Headers (Server, Client, Channel, CommandHandler, ErrorHandler)
 src/         Implementation
 Makefile     C++98 build
 script.sh    Local multi-client test helper
+sic/         SIC IRC client
 ```
 
 
